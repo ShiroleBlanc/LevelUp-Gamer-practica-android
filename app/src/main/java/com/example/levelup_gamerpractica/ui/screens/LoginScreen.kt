@@ -27,6 +27,8 @@ import com.example.levelup_gamerpractica.viewmodel.LoginViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
+    // 1. AÑADE ESTE PARÁMETRO
+    modifier: Modifier = Modifier,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
     // Inyecta el ViewModel usando la factory
@@ -58,7 +60,8 @@ fun LoginScreen(
     }
 
     Column(
-        modifier = Modifier
+        // 2. USA EL PARÁMETRO AQUÍ
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.Center,

@@ -39,7 +39,7 @@ fun CatalogScreen(
         // Corregido: de "usersName" a "userName" para coincidir con el UiState
         if (uiState.userName != null) {
             Text(
-                text = "¡Bienvenido, ${uiState.userName}!", // Puedes personalizar este mensaje
+                text = "¡Bienvenido, ${uiState.userName} A LevelUpGamer La mejor tienda gamer del mundo ", // Puedes personalizar este mensaje
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier
                     .fillMaxWidth()

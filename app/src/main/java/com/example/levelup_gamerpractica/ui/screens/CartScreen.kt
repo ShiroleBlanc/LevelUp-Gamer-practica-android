@@ -23,13 +23,12 @@ import com.example.levelup_gamerpractica.viewmodel.CartViewModel
 import com.example.levelup_gamerpractica.viewmodel.CartViewModelFactory
 import java.text.NumberFormat
 import java.util.Locale
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
+// Ya no necesitas Scaffold, TopAppBar ni ExperimentalMaterial3Api aquí
 
-@OptIn(ExperimentalMaterial3Api::class) // Necesario para TopAppBar
 @Composable
 fun CartScreen(
+    // 1. ACEPTA PADDINGVALUES
+    paddingValues: PaddingValues,
     cartViewModel: CartViewModel = viewModel(
         factory = CartViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     )
@@ -44,82 +43,75 @@ fun CartScreen(
         }
     }
 
-    // 1. Usamos Scaffold como contenedor principal
-    Scaffold(
-        topBar = {
-            // 2. Aquí va tu barra de navegación o header.
-            // Si no tienes uno, puedes usar un TopAppBar de ejemplo.
-            TopAppBar(
-                title = { Text("Mi Carrito") }
-            )
-        }
-    ) { innerPadding -> // 3. Scaffold nos da un padding para evitar la superposición
+    // 2. HEMOS QUITADO EL SCAFFOLD Y TOPAPPBAR
 
-        // 4. Aplicamos ese padding al contenedor de nuestro contenido
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (uiState.items.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("Tu carrito está vacío.", style = MaterialTheme.typography.headlineSmall)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f), // Ocupa el espacio disponible
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), // Ajusta el padding si es necesario
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiState.items, key = { item -> item.productId }) { item ->
-                        CartItemRow(
-                            item = item,
-                            onIncrease = { cartViewModel.increaseQuantity(item.productId) },
-                            onDecrease = { cartViewModel.decreaseQuantity(item.productId) },
-                            onRemove = { cartViewModel.removeFromCart(item.productId) },
-                            currencyFormatter = formatClp
-                        )
-                    }
-                }
-
-                // --- Resumen y Botones ---
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    // ... (El resto de tu código para el total y los botones se mantiene igual)
-                    Text(
-                        text = "Total: ${formatClp.format(uiState.totalAmount)}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary
+    // 3. Aplicamos el padding al contenedor principal
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues) // <-- APLICA EL PADDING AQUÍ
+    ) {
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (uiState.items.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                Text("Tu carrito está vacío.", style = MaterialTheme.typography.headlineSmall)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f), // Ocupa el espacio disponible
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), // Ajusta el padding si es necesario
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(uiState.items, key = { item -> item.productId }) { item ->
+                    CartItemRow(
+                        item = item,
+                        onIncrease = { cartViewModel.increaseQuantity(item.productId) },
+                        onDecrease = { cartViewModel.decreaseQuantity(item.productId) },
+                        onRemove = { cartViewModel.removeFromCart(item.productId) },
+                        currencyFormatter = formatClp
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row {
-                        OutlinedButton(
-                            onClick = { showEmptyCartDialog = true },
-                            modifier = Modifier.weight(1f),
-                            enabled = uiState.items.isNotEmpty()
-                        ) {
-                            Icon(Icons.Filled.RemoveShoppingCart, contentDescription = null)
-                            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                            Text("Vaciar")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                Toast.makeText(context, "Compra finalizada (simulado)", Toast.LENGTH_SHORT).show()
-                                cartViewModel.clearCart()
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = uiState.items.isNotEmpty()
-                        ) {
-                            Icon(Icons.Filled.ShoppingCartCheckout, contentDescription = null)
-                            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                            Text("Finalizar")
-                        }
+                }
+            }
+
+            // --- Resumen y Botones ---
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = "Total: ${formatClp.format(uiState.totalAmount)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row {
+                    OutlinedButton(
+                        onClick = { showEmptyCartDialog = true },
+                        modifier = Modifier.weight(1f),
+                        enabled = uiState.items.isNotEmpty()
+                    ) {
+                        Icon(Icons.Filled.RemoveShoppingCart, contentDescription = null)
+                        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                        Text("Vaciar")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            Toast.makeText(context, "Compra finalizada (simulado)", Toast.LENGTH_SHORT).show()
+                            cartViewModel.clearCart()
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = uiState.items.isNotEmpty()
+                    ) {
+                        Icon(Icons.Filled.ShoppingCartCheckout, contentDescription = null)
+                        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                        Text("Finalizar")
                     }
                 }
             }
@@ -149,7 +141,7 @@ fun CartScreen(
     }
 }
 
-// Composable para una fila del carrito
+// Composable para una fila del carrito (Sin cambios)
 @Composable
 fun CartItemRow(
     item: CartItemWithDetails,
@@ -213,7 +205,7 @@ fun CartItemRow(
     }
 }
 
-// Helper para parsear precio (debe ser consistente con el ViewModel)
+// Helper para parsear precio (Sin cambios)
 private fun parsePrice(value: String): Double {
     if (!value.contains("$")) return 0.0
     val cleaned = value.replace(Regex("[^0-9]"), "")

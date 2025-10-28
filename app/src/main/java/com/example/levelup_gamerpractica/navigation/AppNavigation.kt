@@ -1,6 +1,8 @@
 package com.example.levelup_gamerpractica.navigation
 
+import androidx.compose.foundation.layout.padding // <-- 1. IMPORT AÑADIDO
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -16,50 +18,57 @@ object Routes {
     const val REGISTER = "register"
     const val CATALOG = "catalog"
     const val CART = "cart"
-    // Añadiremos más si la app crece (ej. Product Detail)
 }
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
 
-    // --- CAMBIO AQUÍ ---
-    // La ruta inicial ahora es el catálogo
     NavHost(navController = navController, startDestination = Routes.CATALOG) {
+
+        // --- Rutas que AHORA SÍ tienen el Scaffold ---
         composable(Routes.LOGIN) {
-            LoginScreen(
-                onLoginSuccess = {
-                    // Navega al catálogo y limpia la pila de atrás para no volver al login
-                    navController.navigate(Routes.CATALOG) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                    }
-                },
-                onNavigateToRegister = { navController.navigate(Routes.REGISTER) }
-            )
+            MainAppScaffold(navController = navController) { innerPadding ->
+                LoginScreen(
+                    modifier = Modifier.padding(innerPadding), // Pasa el padding
+                    onLoginSuccess = {
+                        navController.navigate(Routes.CATALOG) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = { navController.navigate(Routes.REGISTER) }
+                )
+            }
         }
         composable(Routes.REGISTER) {
-            RegisterScreen(
-                onRegisterSuccess = {
-                    // Vuelve a la pantalla de login después del registro
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.LOGIN) { inclusive = true } // Vuelve al login limpiando registro
-                    }
-                },
-                onNavigateBack = { navController.popBackStack() }
-            )
+            MainAppScaffold(navController = navController) { innerPadding ->
+                RegisterScreen(
+                    modifier = Modifier.padding(innerPadding), // Pasa el padding
+                    onRegisterSuccess = {
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
-        // Rutas que estarán dentro del Scaffold con el Drawer
-        // En AppNavigation.kt
+
+        // --- Rutas que YA tenían el Scaffold ---
         composable(Routes.CATALOG) {
-            MainAppScaffold(navController = navController) { innerPadding -> // 1. Recibe el padding del Scaffold
-                CatalogScreen(paddingValues = innerPadding) // 2. Pásalo al CatalogScreen
+            MainAppScaffold(navController = navController) { innerPadding ->
+                CatalogScreen(
+                    paddingValues = innerPadding // Pasa el padding
+                    // onProductClick = { ... }
+                )
             }
         }
         composable(Routes.CART) {
-            MainAppScaffold(navController = navController) {
-                CartScreen()
+            MainAppScaffold(navController = navController) { innerPadding ->
+                CartScreen(
+                    paddingValues = innerPadding // 2. ESTO AHORA FUNCIONARÁ
+                )
             }
         }
-        // Puedes añadir más composables aquí para otras pantallas dentro del Drawer
     }
 }

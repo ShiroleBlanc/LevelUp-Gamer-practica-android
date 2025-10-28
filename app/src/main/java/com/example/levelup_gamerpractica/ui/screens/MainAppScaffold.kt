@@ -1,44 +1,68 @@
 package com.example.levelup_gamerpractica.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.levelup_gamerpractica.data.local.LevelUpGamerApplication
 import com.example.levelup_gamerpractica.navigation.Routes
+import com.example.levelup_gamerpractica.viewmodel.MainViewModel
+import com.example.levelup_gamerpractica.viewmodel.MainViewModelFactory
 import kotlinx.coroutines.launch
 
-// Scaffold principal que incluye el Drawer y la TopAppBar
+/**
+ * Este es el Scaffold principal que contiene el TopAppBar y el NavigationDrawer.
+ * Ahora es inteligente: muestra diferentes opciones de menú si el usuario
+ * está logueado o no.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppScaffold(
     navController: NavController,
+    // ViewModel para saber el estado de autenticación
+    mainViewModel: MainViewModel = viewModel(
+        factory = MainViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
+    ),
     content: @Composable (PaddingValues) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    // Obtiene la ruta actual para saber qué título mostrar y qué item resaltar
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+    // Observamos el estado del usuario desde el ViewModel
+    val currentUser by mainViewModel.currentUser.collectAsState()
+
+    // Observamos la ruta actual para saber qué item del menú resaltar
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // --- BLOQUE ELIMINADO ---
+    // Hemos quitado el LaunchedEffect que te redirigía al Login automáticamente.
+    // Ahora la app respetará el 'startDestination' de tu AppNavigation.
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Spacer(Modifier.height(12.dp))
-                // Elementos del Drawer
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- Items SIEMPRE visibles ---
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.ListAlt, contentDescription = "Catálogo") },
+                    icon = { Icon(Icons.Filled.Storefront, contentDescription = "Catálogo") },
                     label = { Text("Catálogo") },
                     selected = currentRoute == Routes.CATALOG,
                     onClick = {
+                        navController.navigate(Routes.CATALOG)
                         scope.launch { drawerState.close() }
-                        if (currentRoute != Routes.CATALOG) {
-                            navController.navigate(Routes.CATALOG) { popUpTo(Routes.CATALOG) {inclusive = true} }
-                        }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
@@ -47,66 +71,89 @@ fun MainAppScaffold(
                     label = { Text("Carrito") },
                     selected = currentRoute == Routes.CART,
                     onClick = {
+                        navController.navigate(Routes.CART)
                         scope.launch { drawerState.close() }
-                        if (currentRoute != Routes.CART) {
-                            navController.navigate(Routes.CART) { popUpTo(Routes.CATALOG) } // Vuelve al catálogo al salir
-                        }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
-                // Divider
+
+                // Divider para separar las secciones
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                // Perfil
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Person, contentDescription = "Perfil") },
-                    label = { Text("Mi Perfil") },
-                    selected = false, // O si tienes ruta de perfil: currentRoute == Routes.PROFILE
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        // navController.navigate(Routes.PROFILE) // Si creas la ruta
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-                // Logout
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Logout, contentDescription = "Cerrar Sesión") },
-                    label = { Text("Cerrar Sesión") },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        // Limpia la pila y vuelve al login
-                        navController.navigate(Routes.LOGIN) {
-                            popUpTo(0) { inclusive = true } // Limpia toda la pila
-                        }
-                    },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+
+                // --- INICIO: LÓGICA CONDICIONAL DEL MENÚ ---
+                if (currentUser == null) {
+                    // --- MENÚ PARA USUARIOS NO LOGUEADOS ---
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión") },
+                        label = { Text("Iniciar Sesión") },
+                        selected = currentRoute == Routes.LOGIN,
+                        onClick = {
+                            navController.navigate(Routes.LOGIN)
+                            scope.launch { drawerState.close() }
+                        },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Filled.PersonAdd, contentDescription = "Registrarme") },
+                        label = { Text("Registrarme") },
+                        selected = currentRoute == Routes.REGISTER,
+                        onClick = {
+                            navController.navigate(Routes.REGISTER)
+                            scope.launch { drawerState.close() }
+                        },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                } else {
+                    // --- MENÚ PARA USUARIOS LOGUEADOS ---
+
+                    // Puedes añadir más items aquí (Ej. "Mi Perfil")
+                    // NavigationDrawerItem(...)
+
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Filled.Logout, contentDescription = "Cerrar Sesión") },
+                        label = { Text("Cerrar Sesión") },
+                        selected = false, // Este item nunca está "seleccionado"
+                        onClick = {
+                            mainViewModel.logout()
+                            scope.launch { drawerState.close() }
+                            // Navegamos al Login AQUÍ, al hacer clic
+                            navController.navigate(Routes.LOGIN) {
+                                popUpTo(0) { inclusive = true } // Limpia la pila completa
+                            }
+                        },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
+                // --- FIN: LÓGICA CONDICIONAL DEL MENÚ ---
             }
         }
     ) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(getTitleForRoute(currentRoute)) },
+                    title = { Text(getTitleForRoute(currentRoute, currentUser?.username)) }, // Título dinámico
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                            Icon(Icons.Filled.Menu, contentDescription = "Abrir Menú")
                         }
                     }
                 )
             }
         ) { innerPadding ->
-            // El contenido de la pantalla actual (CatalogScreen, CartScreen, etc.)
+            // Aquí se muestra el contenido (CatalogScreen, CartScreen, etc.)
             content(innerPadding)
         }
     }
 }
 
-// Función helper para obtener el título de la TopAppBar
-fun getTitleForRoute(route: String?): String {
+
+// Función helper para obtener el título de la TopAppBar (actualizada)
+fun getTitleForRoute(route: String?, userName: String?): String {
     return when (route) {
-        Routes.CATALOG -> "Catálogo"
+        Routes.CATALOG -> userName ?: "Catálogo" // Muestra el nombre si está logueado
         Routes.CART -> "Carrito"
+        Routes.LOGIN -> "Iniciar Sesión"
+        Routes.REGISTER -> "Registro"
         // Añade más casos si tienes más pantallas
         else -> "LevelUp Gamer"
     }

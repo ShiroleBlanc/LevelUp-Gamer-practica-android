@@ -7,10 +7,24 @@ import com.example.levelup_gamerpractica.data.local.entities.Product
 import com.example.levelup_gamerpractica.data.local.entities.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow     // <-- IMPORTAR
+import kotlinx.coroutines.flow.asStateFlow       // <-- IMPORTAR
+import kotlinx.coroutines.flow.map                 // <-- IMPORTAR
 import kotlinx.coroutines.withContext
 
 // Repositorio: Único punto de acceso a los datos (abstrae si vienen de BD local, red, etc.)
 class AppRepository(private val database: AppDatabase) {
+
+    // --- User State Flow ---
+    // Mantiene al usuario actual en memoria
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: Flow<User?> = _currentUser.asStateFlow()
+
+    // Un Flow derivado que solo expone el nombre del usuario (o null)
+    // ¡Esto es lo que usará tu CatalogViewModel!
+    val currentUserNameFlow: Flow<String?> = currentUser.map { user ->
+        user?.username // <-- ¡CORREGIDO! Coincide con tu entidad User.kt
+    }
 
     // --- User Operations ---
     suspend fun registerUser(user: User): Result<Unit> = withContext(Dispatchers.IO) {
@@ -31,14 +45,25 @@ class AppRepository(private val database: AppDatabase) {
         try {
             val user = database.userDao().getUserByEmail(email)
             if (user != null && user.passwordHash == passwordHash) { // Comparar hashes
+                _currentUser.value = user // <-- ¡CAMBIO IMPORTANTE! Guarda el usuario
                 Result.success(user)
             } else {
+                _currentUser.value = null // <-- Asegura que esté nulo si falla
                 Result.failure(Exception("Correo o contraseña incorrectos."))
             }
         } catch (e: Exception) {
+            _currentUser.value = null // <-- Asegura que esté nulo si hay error
             Result.failure(e)
         }
     }
+
+    // (Opcional pero recomendado) Añade una función de logout
+    suspend fun logoutUser() = withContext(Dispatchers.IO) {
+        _currentUser.value = null
+        // Opcionalmente, puedes limpiar el carrito al hacer logout
+        // clearCart()
+    }
+
 
     // --- Product Operations ---
     val allProducts: Flow<List<Product>> = database.productDao().getAllProducts()
@@ -84,4 +109,5 @@ class AppRepository(private val database: AppDatabase) {
         database.cartDao().clearCart()
     }
 }
+
 

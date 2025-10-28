@@ -23,7 +23,9 @@ object Routes {
 fun AppNavigation() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Routes.LOGIN) {
+    // --- CAMBIO AQUÍ ---
+    // La ruta inicial ahora es el catálogo
+    NavHost(navController = navController, startDestination = Routes.CATALOG) {
         composable(Routes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -47,11 +49,10 @@ fun AppNavigation() {
             )
         }
         // Rutas que estarán dentro del Scaffold con el Drawer
+        // En AppNavigation.kt
         composable(Routes.CATALOG) {
-            MainAppScaffold(navController = navController) { // Pasa el navController al Scaffold
-                CatalogScreen(
-                    // onProductClick = { productId -> navController.navigate("productDetail/$productId") } // Ejemplo para detalle
-                )
+            MainAppScaffold(navController = navController) { innerPadding -> // 1. Recibe el padding del Scaffold
+                CatalogScreen(paddingValues = innerPadding) // 2. Pásalo al CatalogScreen
             }
         }
         composable(Routes.CART) {

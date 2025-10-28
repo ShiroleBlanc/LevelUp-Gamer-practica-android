@@ -23,7 +23,11 @@ import com.example.levelup_gamerpractica.viewmodel.CartViewModel
 import com.example.levelup_gamerpractica.viewmodel.CartViewModelFactory
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 
+@OptIn(ExperimentalMaterial3Api::class) // Necesario para TopAppBar
 @Composable
 fun CartScreen(
     cartViewModel: CartViewModel = viewModel(
@@ -34,80 +38,88 @@ fun CartScreen(
     val context = LocalContext.current
     var showEmptyCartDialog by remember { mutableStateOf(false) }
 
-    // Formateador de moneda Chilena
     val formatClp = remember {
         NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
-            maximumFractionDigits = 0 // Sin decimales para CLP
+            maximumFractionDigits = 0
         }
     }
 
-    LaunchedEffect(uiState.items) {
-        println("CartScreen: uiState.items actualizado, tamaño = ${uiState.items.size}")
-    }
+    // 1. Usamos Scaffold como contenedor principal
+    Scaffold(
+        topBar = {
+            // 2. Aquí va tu barra de navegación o header.
+            // Si no tienes uno, puedes usar un TopAppBar de ejemplo.
+            TopAppBar(
+                title = { Text("Mi Carrito") }
+            )
+        }
+    ) { innerPadding -> // 3. Scaffold nos da un padding para evitar la superposición
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (uiState.isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (uiState.items.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                Text("Tu carrito está vacío.", style = MaterialTheme.typography.headlineSmall)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f), // Ocupa el espacio disponible
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(uiState.items, key = { item -> item.productId }) { item ->
-                    CartItemRow(
-                        item = item,
-                        onIncrease = { cartViewModel.increaseQuantity(item.productId) },
-                        onDecrease = { cartViewModel.decreaseQuantity(item.productId) },
-                        onRemove = { cartViewModel.removeFromCart(item.productId) },
-                        currencyFormatter = formatClp
-                    )
+        // 4. Aplicamos ese padding al contenedor de nuestro contenido
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
-            }
-
-            // --- Resumen y Botones ---
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = "Total: ${formatClp.format(uiState.totalAmount)}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row {
-                    OutlinedButton(
-                        onClick = { showEmptyCartDialog = true },
-                        modifier = Modifier.weight(1f),
-                        enabled = uiState.items.isNotEmpty()
-                    ) {
-                        Icon(Icons.Filled.RemoveShoppingCart, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                        Text("Vaciar")
+            } else if (uiState.items.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text("Tu carrito está vacío.", style = MaterialTheme.typography.headlineSmall)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f), // Ocupa el espacio disponible
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), // Ajusta el padding si es necesario
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.items, key = { item -> item.productId }) { item ->
+                        CartItemRow(
+                            item = item,
+                            onIncrease = { cartViewModel.increaseQuantity(item.productId) },
+                            onDecrease = { cartViewModel.decreaseQuantity(item.productId) },
+                            onRemove = { cartViewModel.removeFromCart(item.productId) },
+                            currencyFormatter = formatClp
+                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            Toast.makeText(context, "Compra finalizada (simulado)", Toast.LENGTH_SHORT).show()
-                            cartViewModel.clearCart()
-                            // Aquí podrías navegar a otra pantalla o volver al catálogo
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = uiState.items.isNotEmpty()
-                    ) {
-                        Icon(Icons.Filled.ShoppingCartCheckout, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                        Text("Finalizar")
+                }
+
+                // --- Resumen y Botones ---
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    // ... (El resto de tu código para el total y los botones se mantiene igual)
+                    Text(
+                        text = "Total: ${formatClp.format(uiState.totalAmount)}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row {
+                        OutlinedButton(
+                            onClick = { showEmptyCartDialog = true },
+                            modifier = Modifier.weight(1f),
+                            enabled = uiState.items.isNotEmpty()
+                        ) {
+                            Icon(Icons.Filled.RemoveShoppingCart, contentDescription = null)
+                            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                            Text("Vaciar")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                Toast.makeText(context, "Compra finalizada (simulado)", Toast.LENGTH_SHORT).show()
+                                cartViewModel.clearCart()
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = uiState.items.isNotEmpty()
+                        ) {
+                            Icon(Icons.Filled.ShoppingCartCheckout, contentDescription = null)
+                            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                            Text("Finalizar")
+                        }
                     }
                 }
             }

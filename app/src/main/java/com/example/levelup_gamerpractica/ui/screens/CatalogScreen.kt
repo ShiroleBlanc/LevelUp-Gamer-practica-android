@@ -1,5 +1,6 @@
 package com.example.levelup_gamerpractica.ui.screens
 
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -20,6 +21,7 @@ import com.example.levelup_gamerpractica.viewmodel.CatalogViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(
+    paddingValues: PaddingValues, // <-- 1. AÑADIMOS ESTE PARÁMETRO
     // onProductClick: (Int) -> Unit // Para navegar al detalle
     catalogViewModel: CatalogViewModel = viewModel(
         factory = CatalogViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
@@ -28,8 +30,27 @@ fun CatalogScreen(
     val uiState by catalogViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    // 2. APLICAMOS EL PADDING AL CONTENEDOR PRINCIPAL
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(paddingValues)) {
+
+        // --- INICIO: MENSAJE DE BIENVENIDA ---
+        // Corregido: de "usersName" a "userName" para coincidir con el UiState
+        if (uiState.userName != null) {
+            Text(
+                text = "¡Bienvenido, ${uiState.userName}!", // Puedes personalizar este mensaje
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
+        // --- FIN: MENSAJE DE BIENVENIDA ---
+
+
         // --- Barra de Filtro de Categorías ---
+        // (Esto ya lo tenías y funciona como filtro)
         FilterBar(
             categories = uiState.categories,
             selectedCategory = uiState.selectedCategory,
@@ -48,7 +69,7 @@ fun CatalogScreen(
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 160.dp), // Columnas adaptables
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), // Ajuste de padding
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f) // Ocupa el espacio restante
@@ -68,7 +89,7 @@ fun CatalogScreen(
     }
 }
 
-// Composable para la barra de filtros
+// Composable para la barra de filtros (Sin cambios, ya funciona)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterBar(
@@ -81,7 +102,7 @@ fun FilterBar(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded },
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp) // Ajuste de padding
     ) {
         OutlinedTextField(
             value = selectedCategory,

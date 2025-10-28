@@ -35,8 +35,8 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = CartUiState()
+            started = SharingStarted.Eagerly,
+            initialValue = CartUiState(isLoading = true)
         )
 
     fun increaseQuantity(productId: Int) {
@@ -58,7 +58,7 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
     // --- Helper para parsear precio (igual que en el Context de React) ---
     private fun parsePrice(value: String): Double {
         if (!value.contains("$")) return 0.0 // Manejo básico si no tiene $
-        val cleaned = value.replace(Regex("[^0-9]"), "") // Quita todo excepto números
+        val cleaned = value.replace(Regex("[^0-9]"), "")
         return cleaned.toDoubleOrNull() ?: 0.0
     }
 }

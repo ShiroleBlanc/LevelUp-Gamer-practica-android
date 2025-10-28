@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow // Importa Flow para datos reactivos
 @Dao
 interface CartDao {
     // Observa todos los items del carrito (Flow se actualiza automáticamente)
-    @Query("SELECT ci.productId, ci.quantity, p.name, p.price, p.image FROM cart_items ci JOIN products p ON ci.productId = p.id")
+    @Query("SELECT ci.productId, ci.quantity, p.name, p.price, p.image FROM cart_items ci LEFT JOIN products p ON ci.productId = p.id")
     fun getCartItemsWithDetails(): Flow<List<CartItemWithDetails>>
 
     // Inserta o actualiza un item (si ya existe, reemplaza)

@@ -110,14 +110,10 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
             // 2. Hashear contraseñas
             val oldHash = hashPassword(oldPassword.value)
             val newHash = hashPassword(newPassword.value)
-
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Los nombres de los parámetros deben coincidir con AppRepository.kt
             val result = repository.updateUserPassword(
                 oldPasswordHash = oldHash,
                 newPasswordHash = newHash
             )
-            // --- FIN DE LA CORRECCIÓN ---
 
             // 3. Manejar resultado
             result.onSuccess {

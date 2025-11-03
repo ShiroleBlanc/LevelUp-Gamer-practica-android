@@ -3,45 +3,52 @@ package com.example.levelup_gamerpractica.ui.screens
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest // <-- IMPORT AÑADIDO
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter // <-- IMPORTADO
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.example.levelup_gamerpractica.R
+import coil.compose.AsyncImage
 import com.example.levelup_gamerpractica.data.local.LevelUpGamerApplication
-import com.example.levelup_gamerpractica.viewmodel.ProfileUiState
 import com.example.levelup_gamerpractica.viewmodel.ProfileViewModel
 import com.example.levelup_gamerpractica.viewmodel.ProfileViewModelFactory
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
@@ -50,283 +57,279 @@ fun ProfileScreen(
         factory = ProfileViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     )
 ) {
-    // --- CORRECCIÓN DE ESTADO ---
-    // El ViewModel expone un solo UiState que contiene todo.
-    val uiState by profileViewModel.uiState.collectAsState()
-    // El usuario se deriva del uiState
-    val user = uiState.user
-    // --- FIN DE CORRECCIÓN ---
-
     val context = LocalContext.current
-    var showEditDialog by remember { mutableStateOf<String?>(null) }
-    var showImageSourceDialog by remember { mutableStateOf(false) }
 
-    // --- Controladores para permisos e imágenes ---
+    // --- Recolectar estado del ViewModel ---
+    val uiState by profileViewModel.uiState.collectAsState()
+    val username by profileViewModel.username.collectAsState()
+    val email by profileViewModel.email.collectAsState()
+    val oldPassword by profileViewModel.oldPassword.collectAsState()
+    val newPassword by profileViewModel.newPassword.collectAsState()
+    val confirmNewPassword by profileViewModel.confirmNewPassword.collectAsState()
+    // ----------------------------------------
+
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showPhotoDialog by remember { mutableStateOf(false) }
+
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
-    // 1. Lanzador para la CÁMARA
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-        onResult = { success ->
-            if (success) {
-                tempCameraUri?.let { uri ->
-                    profileViewModel.onProfilePictureChanged(uri.toString())
-                }
-            }
-        }
-    )
-
-    // 2. Lanzador para la GALERÍA
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            if (uri != null) {
-                try {
-                    // El selector PickVisualMedia ya nos da acceso temporal.
-                    profileViewModel.onProfilePictureChanged(uri.toString())
-
-                } catch (e: SecurityException) {
-                    Toast.makeText(context, "Error de permisos: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    )
-
-    // 3. Lanzador para el permiso de CÁMARA
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            if (isGranted) {
-                // Permiso concedido, crear URI y lanzar cámara
-                val newUri = createImageUri(context)
-                tempCameraUri = newUri
-                cameraLauncher.launch(newUri) // Usamos la variable local
-            } else {
-                Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
-
-
-    // --- CORRECCIÓN DE LaunchedEffect ---
-    // Se comprueban las propiedades del UiState, no las subclases
-    LaunchedEffect(uiState) {
-        if (uiState.isSuccess) {
-            Toast.makeText(context, "Perfil actualizado", Toast.LENGTH_SHORT).show()
+    // --- Manejo de UI (Errores/Éxito) ---
+    LaunchedEffect(uiState.error, uiState.isSuccess) {
+        if (uiState.error != null) {
+            Toast.makeText(context, uiState.error, Toast.LENGTH_LONG).show()
             profileViewModel.consumeUiState()
         }
-        if (uiState.error != null) {
-            Toast.makeText(context, "Error: ${uiState.error}", Toast.LENGTH_LONG).show()
+        if (uiState.isSuccess) {
+            Toast.makeText(context, "¡Actualizado con éxito!", Toast.LENGTH_SHORT).show()
+            showEditDialog = false
+            showPasswordDialog = false
             profileViewModel.consumeUiState()
         }
     }
-    // --- FIN DE CORRECCIÓN ---
 
+    // --- Lanzador de Galería (Moderno) ---
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                // Ya no necesitamos permisos persistentes aquí
+                profileViewModel.updateProfilePicture(uri.toString())
+            }
+            showPhotoDialog = false
+        }
+    )
+
+    // --- Lanzador de Cámara ---
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success: Boolean ->
+            if (success) {
+                tempCameraUri?.let { uri ->
+                    profileViewModel.updateProfilePicture(uri.toString())
+                }
+            }
+            showPhotoDialog = false
+        }
+    )
+
+    // --- Lanzador de Permisos ---
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted: Boolean ->
+            if (isGranted) {
+                // Permiso concedido, lanzar la cámara
+                val newUri = context.createImageUri()
+                tempCameraUri = newUri
+                cameraLauncher.launch(newUri)
+            } else {
+                Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+                showPhotoDialog = false
+            }
+        }
+    )
 
     // --- UI Principal ---
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(20.dp))
+        // --- Sección de Foto de Perfil ---
+        // --- INICIO DE LA CORRECCIÓN ---
+        val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
+        // --- FIN DE LA CORRECCIÓN ---
 
-        // --- Imagen de Perfil ---
         Box(
             modifier = Modifier
-                .size(150.dp)
+                .size(120.dp)
                 .clip(CircleShape)
-                .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                .clickable { showImageSourceDialog = true },
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { showPhotoDialog = true },
             contentAlignment = Alignment.Center
         ) {
-            Image(
-                // Los errores de 'profilePictureUri' se arreglan al corregir 'user'
-                painter = rememberAsyncImagePainter(
-                    model = user?.profilePictureUri ?: R.drawable.ic_launcher_background // TODO: Reemplaza con un placeholder
-                ),
-                contentDescription = "Foto de Perfil",
+            AsyncImage(
+                model = uiState.user?.profilePictureUri,
+                contentDescription = "Foto de perfil",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                // --- INICIO DE LA CORRECCIÓN ---
+                placeholder = fallbackPainter,
+                error = fallbackPainter,
+                fallback = fallbackPainter
+                /* El código antiguo que causaba el error:
+                fallback = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Foto por defecto",
+                        modifier = Modifier.size(70.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                */
+                // --- FIN DE LA CORRECCIÓN ---
             )
-            // Icono de "editar" sobre la imagen
+            // Icono de "Editar" sobre la foto
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(CircleShape)
-                    .clickable { showImageSourceDialog = true }
-                    .padding(8.dp),
-                contentAlignment = Alignment.BottomEnd
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Filled.CameraAlt,
-                    contentDescription = "Cambiar Foto",
-                    tint = Color.White,
-                    modifier = Modifier.size(30.dp)
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = "Cambiar foto",
+                    tint = Color.White
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = uiState.user?.username ?: "Usuario",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = uiState.user?.email ?: "email@ejemplo.com",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
-        // --- Detalles del Usuario ---
-        // Los errores de 'username' y 'email' se arreglan al corregir 'user'
-        ProfileInfoRow(
-            label = "Nombre de Usuario",
-            value = user?.username ?: "Cargando...",
-            onEditClick = { showEditDialog = "username" }
+        Spacer(modifier = Modifier.height(32.dp))
+        Divider()
+
+        // --- Botones de Acción ---
+        ProfileButton(
+            text = "Editar Perfil (Nombre/Email)",
+            icon = Icons.Default.Person,
+            onClick = { showEditDialog = true }
         )
-        ProfileInfoRow(
-            label = "Correo Electrónico",
-            value = user?.email ?: "Cargando...",
-            onEditClick = { showEditDialog = "email" }
-        )
-        ProfileInfoRow(
-            label = "Contraseña",
-            value = "••••••••",
-            onEditClick = { showEditDialog = "password" }
+        ProfileButton(
+            text = "Cambiar Contraseña",
+            icon = Icons.Default.Lock,
+            onClick = { showPasswordDialog = true }
         )
     }
 
-    // --- Diálogo para elegir Fuente de Imagen ---
-    if (showImageSourceDialog) {
+    // --- Diálogo: Elegir Foto (Galería o Cámara) ---
+    if (showPhotoDialog) {
         AlertDialog(
-            onDismissRequest = { showImageSourceDialog = false },
+            onDismissRequest = { showPhotoDialog = false },
             title = { Text("Cambiar Foto de Perfil") },
             text = { Text("¿Desde dónde quieres elegir la foto?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showImageSourceDialog = false
-                        // Verificar permiso de cámara
-                        when (PackageManager.PERMISSION_GRANTED) {
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> {
-                                val newUri = createImageUri(context)
-                                tempCameraUri = newUri
-                                cameraLauncher.launch(newUri) // Usamos la variable local
-                            }
-                            else -> {
-                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
-                        }
+                        val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        galleryLauncher.launch(request)
                     }
-                ) { Text("Cámara") }
+                ) { Text("Galería") }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
-                        showImageSourceDialog = false
-                        // --- CORRECCIÓN DEL LAUNCHER ---
-                        // Se debe usar PickVisualMediaRequest
-                        galleryLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                        // --- FIN DE CORRECCIÓN ---
+                        // Pedir permiso de cámara antes de lanzarla
+                        permissionLauncher.launch(Manifest.permission.CAMERA)
                     }
-                ) { Text("Galería") }
+                ) { Text("Cámara") }
             }
         )
     }
 
-    // --- Diálogo para Editar Campos ---
-    if (showEditDialog != null) {
+    // --- Diálogo: Editar Perfil ---
+    if (showEditDialog) {
         EditProfileDialog(
-            field = showEditDialog!!,
-            onDismiss = { showEditDialog = null },
-            onConfirm = { field, value1, value2 ->
-                when (field) {
-                    "username" -> profileViewModel.updateDetails(username = value1)
-                    "email" -> profileViewModel.updateDetails(email = value1)
-                    // El error de 'updatePassword' se soluciona al tener el ViewModel correcto
-                    "password" -> profileViewModel.updatePassword(oldPassword = value1, newPassword = value2)
-                }
-                showEditDialog = null
-            }
+            username = username,
+            email = email,
+            onDismiss = { showEditDialog = false },
+            onConfirm = {
+                profileViewModel.updateDetails()
+            },
+            onUsernameChange = { profileViewModel.username.value = it },
+            onEmailChange = { profileViewModel.email.value = it },
+            isLoading = uiState.isLoading
+        )
+    }
+
+    // --- Diálogo: Cambiar Contraseña ---
+    if (showPasswordDialog) {
+        ChangePasswordDialog(
+            oldPassword = oldPassword,
+            newPassword = newPassword,
+            confirmNewPassword = confirmNewPassword,
+            onDismiss = { showPasswordDialog = false },
+            onConfirm = {
+                profileViewModel.updatePassword()
+            },
+            onOldPasswordChange = { profileViewModel.oldPassword.value = it },
+            onNewPasswordChange = { profileViewModel.newPassword.value = it },
+            onConfirmNewPasswordChange = { profileViewModel.confirmNewPassword.value = it },
+            isLoading = uiState.isLoading
         )
     }
 }
 
-// --- Composable para las filas de información (Nombre, Email, etc.) ---
+// --- Componentes de Diálogos (Internos) ---
+
 @Composable
-private fun ProfileInfoRow(label: String, value: String, onEditClick: () -> Unit) {
-    Card(
+private fun ProfileButton(text: String, icon: ImageVector, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            .padding(vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(value, style = MaterialTheme.typography.bodyLarge)
-            }
-            IconButton(onClick = onEditClick) {
-                Icon(Icons.Filled.Edit, contentDescription = "Editar $label")
-            }
-        }
+        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(text)
+        Spacer(modifier = Modifier.weight(1f))
     }
 }
 
-// --- Diálogo genérico para editar ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditProfileDialog(
-    field: String,
+    username: String,
+    email: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String) -> Unit
+    onConfirm: () -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onEmailChange: (String) -> Unit,
+    isLoading: Boolean
 ) {
-    var value1 by remember { mutableStateOf("") }
-    var value2 by remember { mutableStateOf("") }
-    val isPassword = field == "password"
-
-    val title = when (field) {
-        "username" -> "Cambiar Nombre de Usuario"
-        "email" -> "Cambiar Correo Electrónico"
-        "password" -> "Cambiar Contraseña"
-        else -> ""
-    }
-    val label1 = when (field) {
-        "username" -> "Nuevo nombre de usuario"
-        "email" -> "Nuevo correo electrónico"
-        "password" -> "Contraseña actual"
-        else -> ""
-    }
-    val label2 = if (isPassword) "Nueva contraseña" else ""
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text("Editar Perfil") },
         text = {
             Column {
                 OutlinedTextField(
-                    value = value1,
-                    onValueChange = { value1 = it },
-                    label = { Text(label1) },
+                    value = username,
+                    onValueChange = onUsernameChange,
+                    label = { Text("Nombre de usuario") },
+                    leadingIcon = { Icon(Icons.Default.Person, null) },
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (isPassword) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = value2,
-                        onValueChange = { value2 = it },
-                        label = { Text(label2) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    label = { Text("Email") },
+                    leadingIcon = { Icon(Icons.Default.Email, null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(field, value1, value2) }) {
-                Text("Guardar")
+            Button(onClick = onConfirm, enabled = !isLoading) {
+                if (isLoading) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Guardar")
+                }
             }
         },
         dismissButton = {
@@ -337,14 +340,105 @@ private fun EditProfileDialog(
     )
 }
 
-// --- Función Helper para crear la URI de la cámara ---
-private fun createImageUri(context: Context): Uri {
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    val imageFile = File(context.cacheDir, "JPEG_${timeStamp}_my_image.jpg")
-    return FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.provider", // Asegúrate que coincida con el AndroidManifest
-        imageFile
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChangePasswordDialog(
+    oldPassword: String,
+    newPassword: String,
+    confirmNewPassword: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    onOldPasswordChange: (String) -> Unit,
+    onNewPasswordChange: (String) -> Unit,
+    onConfirmNewPasswordChange: (String) -> Unit,
+    isLoading: Boolean
+) {
+    var oldVisible by remember { mutableStateOf(false) }
+    var newVisible by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cambiar Contraseña") },
+        text = {
+            Column {
+                PasswordField(
+                    value = oldPassword,
+                    onValueChange = onOldPasswordChange,
+                    label = "Contraseña actual",
+                    isVisible = oldVisible,
+                    onVisibilityToggle = { oldVisible = !oldVisible }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                PasswordField(
+                    value = newPassword,
+                    onValueChange = onNewPasswordChange,
+                    label = "Nueva contraseña",
+                    isVisible = newVisible,
+                    onVisibilityToggle = { newVisible = !newVisible }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                PasswordField(
+                    value = confirmNewPassword,
+                    onValueChange = onConfirmNewPasswordChange,
+                    label = "Confirmar nueva contraseña",
+                    isVisible = confirmVisible,
+                    onVisibilityToggle = { confirmVisible = !confirmVisible }
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = !isLoading) {
+                if (isLoading) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Actualizar")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
     )
 }
 
+@Composable
+private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    isVisible: Boolean,
+    onVisibilityToggle: () -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        leadingIcon = { Icon(Icons.Default.Lock, null) },
+        visualTransformation = if (isVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            val icon = if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
+            IconButton(onClick = onVisibilityToggle) {
+                Icon(icon, if (isVisible) "Ocultar" else "Mostrar")
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+// --- Helper para crear la URI de la cámara ---
+private fun Context.createImageUri(): Uri {
+    val file = File(filesDir, "camera_photos").apply { mkdirs() }
+    val imageFile = File(
+        file,
+        "img_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.jpg"
+    )
+    return FileProvider.getUriForFile(
+        this,
+        "${applicationContext.packageName}.provider",
+        imageFile
+    )
+}

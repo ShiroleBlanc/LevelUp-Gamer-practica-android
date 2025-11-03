@@ -36,8 +36,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "levelup_gamer_database" // Nombre del archivo de la BD
                 )
-                    .fallbackToDestructiveMigration() // Esto está bien, déjalo
-                    .addCallback(DatabaseCallback(context.applicationContext)) // Pasar el applicationContext
+                    .fallbackToDestructiveMigration() 
+                    .addCallback(DatabaseCallback(context.applicationContext)) 
                     .build()
                 INSTANCE = instance
                 instance
@@ -49,23 +49,13 @@ abstract class AppDatabase : RoomDatabase() {
     private class DatabaseCallback(private val context: Context) : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
-
-            // --- ESTA ES LA CORRECCIÓN ---
-            // NO usar INSTANCE?.let aquí.
-            // Lanzar una coroutina.
             CoroutineScope(Dispatchers.IO).launch {
-                // Dentro de la coroutina, VOLVER a llamar a getDatabase.
-                // Como es 'synchronized' y 'INSTANCE' ya se habrá asignado
-                // (o se estará asignando), esto obtendrá la instancia
-                // de forma segura y nos dará el DAO.
                 val productDao = getDatabase(context).productDao()
                 populateDatabase(productDao)
             }
-            // --- FIN DE LA CORRECCIÓN ---
         }
 
         suspend fun populateDatabase(productDao: ProductDao) {
-            // (Tu lista de productos que ya tenías está bien)
             val initialProducts = listOf(
                 Product(
                     id = 1, name = "Catan", price = "$29.990 CLP", category = "Juegos de Mesa",

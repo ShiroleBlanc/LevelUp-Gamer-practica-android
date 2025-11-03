@@ -7,9 +7,9 @@ import com.example.levelup_gamerpractica.data.local.entities.Product
 import com.example.levelup_gamerpractica.data.local.entities.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow     // <-- IMPORTAR
-import kotlinx.coroutines.flow.asStateFlow       // <-- IMPORTAR
-import kotlinx.coroutines.flow.map                 // <-- IMPORTAR
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 // Repositorio: Único punto de acceso a los datos
@@ -41,6 +41,7 @@ class AppRepository(private val database: AppDatabase) {
     suspend fun loginUser(email: String, passwordHash: String): Result<User> = withContext(Dispatchers.IO) {
         try {
             val user = database.userDao().getUserByEmail(email)
+            // Asumiendo que tu entidad User tiene un campo 'passwordHash'
             if (user != null && user.passwordHash == passwordHash) {
                 _currentUser.value = user
                 Result.success(user)
@@ -60,6 +61,32 @@ class AppRepository(private val database: AppDatabase) {
         clearCart()
     }
 
+    // --- FUNCIÓN AÑADIDA ---
+    /**
+     * Actualiza la foto de perfil del usuario logueado.
+     * Esto actualiza tanto la BD como el StateFlow en memoria.
+     */
+    suspend fun updateProfilePicture(uri: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val user = _currentUser.value
+
+            // Asumiendo que tu entidad User es un data class y tiene 'id'
+            if (user != null) {
+                // 1. Actualizar la base de datos
+                database.userDao().updateProfilePicture(user.id, uri)
+
+                // 2. Actualizar el usuario en memoria (StateFlow)
+                _currentUser.value = user.copy(profilePictureUri = uri)
+
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("No hay ningún usuario logueado."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
 
     // --- operaciones de producto ---
     val allProducts: Flow<List<Product>> = database.productDao().getAllProducts()
@@ -69,6 +96,7 @@ class AppRepository(private val database: AppDatabase) {
     // --- Operaciones de carrito ---
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
 
+    // --- LÍNEA CORREGIDA ---
     suspend fun addToCart(productId: Int) = withContext(Dispatchers.IO) {
         val existingItem = database.cartDao().getCartItem(productId)
         if (existingItem != null) {
@@ -105,5 +133,3 @@ class AppRepository(private val database: AppDatabase) {
         database.cartDao().clearCart()
     }
 }
-
-

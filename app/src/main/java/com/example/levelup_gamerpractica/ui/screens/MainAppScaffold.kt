@@ -12,14 +12,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.rememberVectorPainter // <-- 1. IMPORTAR ESTO
+import androidx.compose.ui.graphics.vector.rememberVectorPainter 
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import coil.compose.AsyncImage // Importar AsyncImage de Coil
+import coil.compose.AsyncImage 
 import com.example.levelup_gamerpractica.data.local.LevelUpGamerApplication
 import com.example.levelup_gamerpractica.navigation.Routes
 import com.example.levelup_gamerpractica.viewmodel.MainViewModel
@@ -141,7 +141,6 @@ fun MainAppScaffold(
                             Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
                         }
                     },
-                    // --- 2. AÑADIR ESTE BLOQUE 'actions' ---
                     actions = {
                         // Solo muestra el icono de perfil si el usuario está logueado
                         if (currentUser != null) {
@@ -149,7 +148,6 @@ fun MainAppScaffold(
                                 onClick = { navController.navigate(Routes.PROFILE) },
                                 modifier = Modifier.padding(end = 8.dp)
                             ) {
-                                // --- 3. CREAR EL PAINTER ---
                                 // Creamos un painter a partir del Icono de Vector
                                 val placeholderPainter = rememberVectorPainter(
                                     Icons.Filled.AccountCircle
@@ -160,7 +158,6 @@ fun MainAppScaffold(
                                     model = currentUser?.profilePictureUri,
                                     contentDescription = "Foto de perfil",
 
-                                    // --- 4. ASIGNAR EL PAINTER A LOS ESTADOS ---
                                     // Icono mientras carga
                                     placeholder = placeholderPainter,
                                     // Icono si hay error
@@ -176,7 +173,6 @@ fun MainAppScaffold(
                             }
                         }
                     }
-                    // --- FIN DEL BLOQUE AÑADIDO ---
                 )
             }
         ) { innerPadding ->
@@ -193,7 +189,7 @@ fun getTitleForRoute(route: String?, userName: String?): String {
         Routes.CART -> "Carrito"
         Routes.LOGIN -> "Iniciar Sesión"
         Routes.REGISTER -> "Registro"
-        Routes.PROFILE -> "Mi Perfil" // <-- 3. Añadir el título para la ruta de perfil
+        Routes.PROFILE -> "Mi Perfil" 
         else -> "LevelUp Gamer"
     }
 }

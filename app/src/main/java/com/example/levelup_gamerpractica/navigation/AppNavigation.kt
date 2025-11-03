@@ -9,7 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.levelup_gamerpractica.ui.screens.CartScreen
 import com.example.levelup_gamerpractica.ui.screens.CatalogScreen
 import com.example.levelup_gamerpractica.ui.screens.LoginScreen
-import com.example.levelup_gamerpractica.ui.screens.ProfileScreen // <-- IMPORT AÑADIDO
+import com.example.levelup_gamerpractica.ui.screens.ProfileScreen
 import com.example.levelup_gamerpractica.ui.screens.RegisterScreen
 import com.example.levelup_gamerpractica.ui.screens.MainAppScaffold
 
@@ -19,7 +19,7 @@ object Routes {
     const val REGISTER = "register"
     const val CATALOG = "catalog"
     const val CART = "cart"
-    const val PROFILE = "profile" // <-- RUTA AÑADIDA
+    const val PROFILE = "profile" 
 }
 
 @Composable

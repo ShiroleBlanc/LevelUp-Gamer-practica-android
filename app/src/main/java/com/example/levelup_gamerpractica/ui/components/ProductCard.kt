@@ -30,8 +30,8 @@ fun ProductCard(
     val imageResId = remember(product.image) {
         try {
             context.resources.getIdentifier(product.image.substringAfterLast('/'), "drawable", context.packageName)
-        } catch (e: Exception)
-            0 // 0 significa que no se encontró
+        } catch (e: Exception){
+            0
         }
     }
 

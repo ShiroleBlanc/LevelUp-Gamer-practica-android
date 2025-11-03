@@ -106,6 +106,7 @@ fun MainAppScaffold(
                             // Navegamos al Login AQUÍ, al hacer clic
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
+                            } // <- AÑADIR ESTE PARÉNTESIS DE CIERRE
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )

@@ -21,8 +21,7 @@ import com.example.levelup_gamerpractica.viewmodel.CatalogViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(
-    paddingValues: PaddingValues, // <-- 1. AÑADIMOS ESTE PARÁMETRO
-    // onProductClick: (Int) -> Unit // Para navegar al detalle
+    paddingValues: PaddingValues,
     catalogViewModel: CatalogViewModel = viewModel(
         factory = CatalogViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     )
@@ -30,27 +29,23 @@ fun CatalogScreen(
     val uiState by catalogViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // 2. APLICAMOS EL PADDING AL CONTENEDOR PRINCIPAL
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(paddingValues)) {
 
         // --- INICIO: MENSAJE DE BIENVENIDA ---
-        // Corregido: de "usersName" a "userName" para coincidir con el UiState
         if (uiState.userName != null) {
             Text(
-                text = "¡Bienvenido, ${uiState.userName} A LevelUpGamer La mejor tienda gamer del mundo ", // Puedes personalizar este mensaje
+                text = "¡Bienvenido, ${uiState.userName} A LevelUpGamer La mejor tienda gamer del mundo ",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             )
         }
-        // --- FIN: MENSAJE DE BIENVENIDA ---
 
 
         // --- Barra de Filtro de Categorías ---
-        // (Esto ya lo tenías y funciona como filtro)
         FilterBar(
             categories = uiState.categories,
             selectedCategory = uiState.selectedCategory,
@@ -68,11 +63,11 @@ fun CatalogScreen(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp), // Columnas adaptables
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), // Ajuste de padding
+                columns = GridCells.Adaptive(minSize = 160.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.weight(1f) // Ocupa el espacio restante
+                modifier = Modifier.weight(1f)
             ) {
                 items(uiState.products, key = { product -> product.id }) { product ->
                     ProductCard(
@@ -89,7 +84,7 @@ fun CatalogScreen(
     }
 }
 
-// Composable para la barra de filtros (Sin cambios, ya funciona)
+// Composable para la barra de filtros
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterBar(
@@ -106,12 +101,12 @@ fun FilterBar(
     ) {
         OutlinedTextField(
             value = selectedCategory,
-            onValueChange = {}, // No editable directamente
+            onValueChange = {},
             readOnly = true,
             label = { Text("Filtrar por Categoría") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
-                .menuAnchor() // Ancla el menú al TextField
+                .menuAnchor()
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(

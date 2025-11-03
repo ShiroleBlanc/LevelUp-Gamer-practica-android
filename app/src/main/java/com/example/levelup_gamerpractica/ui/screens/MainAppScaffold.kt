@@ -20,11 +20,7 @@ import com.example.levelup_gamerpractica.viewmodel.MainViewModel
 import com.example.levelup_gamerpractica.viewmodel.MainViewModelFactory
 import kotlinx.coroutines.launch
 
-/**
- * Este es el Scaffold principal que contiene el TopAppBar y el NavigationDrawer.
- * Ahora es inteligente: muestra diferentes opciones de menú si el usuario
- * está logueado o no.
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppScaffold(
@@ -44,10 +40,6 @@ fun MainAppScaffold(
     // Observamos la ruta actual para saber qué item del menú resaltar
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
-    // --- BLOQUE ELIMINADO ---
-    // Hemos quitado el LaunchedEffect que te redirigía al Login automáticamente.
-    // Ahora la app respetará el 'startDestination' de tu AppNavigation.
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -104,34 +96,27 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 } else {
-                    // --- MENÚ PARA USUARIOS LOGUEADOS ---
-
-                    // Puedes añadir más items aquí (Ej. "Mi Perfil")
-                    // NavigationDrawerItem(...)
-
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Logout, contentDescription = "Cerrar Sesión") },
                         label = { Text("Cerrar Sesión") },
-                        selected = false, // Este item nunca está "seleccionado"
+                        selected = false,
                         onClick = {
                             mainViewModel.logout()
                             scope.launch { drawerState.close() }
                             // Navegamos al Login AQUÍ, al hacer clic
                             navController.navigate(Routes.LOGIN) {
-                                popUpTo(0) { inclusive = true } // Limpia la pila completa
-                            }
+                                popUpTo(0) { inclusive = true }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
-                // --- FIN: LÓGICA CONDICIONAL DEL MENÚ ---
             }
         }
     ) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(getTitleForRoute(currentRoute, currentUser?.username)) }, // Título dinámico
+                    title = { Text(getTitleForRoute(currentRoute, currentUser?.username)) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Filled.Menu, contentDescription = "Abrir Menú")
@@ -140,21 +125,19 @@ fun MainAppScaffold(
                 )
             }
         ) { innerPadding ->
-            // Aquí se muestra el contenido (CatalogScreen, CartScreen, etc.)
             content(innerPadding)
         }
     }
 }
 
 
-// Función helper para obtener el título de la TopAppBar (actualizada)
+// Función helper para obtener el título de la TopAppBar
 fun getTitleForRoute(route: String?, userName: String?): String {
     return when (route) {
-        Routes.CATALOG -> userName ?: "Catálogo" // Muestra el nombre si está logueado
+        Routes.CATALOG -> userName ?: "Catálogo"
         Routes.CART -> "Carrito"
         Routes.LOGIN -> "Iniciar Sesión"
         Routes.REGISTER -> "Registro"
-        // Añade más casos si tienes más pantallas
         else -> "LevelUp Gamer"
     }
 }

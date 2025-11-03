@@ -32,10 +32,9 @@ import java.util.Calendar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
-    // 1. ACEPTA EL MODIFIER
     modifier: Modifier = Modifier,
     onRegisterSuccess: () -> Unit,
-    onNavigateBack: () -> Unit, // Lo mantenemos por si usas el botón de atrás del sistema
+    onNavigateBack: () -> Unit,
     registerViewModel: RegisterViewModel = viewModel(
         factory = RegisterViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     )
@@ -79,10 +78,8 @@ fun RegisterScreen(
     val month = calendar.get(Calendar.MONTH)
     val day = calendar.get(Calendar.DAY_OF_MONTH)
 
-
-    // 2. HEMOS QUITADO EL SCAFFOLD Y EL TOPAPPBAR
     Column(
-        modifier = modifier // 3. APLICAMOS EL MODIFIER (que ya tiene el padding del Scaffold)
+        modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .verticalScroll(rememberScrollState()), // Permite scroll si el teclado tapa
@@ -162,7 +159,6 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
                 IconButton(onClick = {
-                    // La lógica para mostrar el diálogo ahora va en el onClick del IconButton
                     val calendar = Calendar.getInstance()
                     val initialYear = birthDate?.year ?: calendar.get(Calendar.YEAR)
                     val initialMonth = birthDate?.monthValue?.minus(1) ?: calendar.get(Calendar.MONTH)
@@ -181,7 +177,7 @@ fun RegisterScreen(
                     }
                 }) {
                     Icon(
-                        Icons.Filled.DateRange, // <-- Ícono de Calendario
+                        Icons.Filled.DateRange,
                         contentDescription = "Seleccionar Fecha"
                     )
                 }

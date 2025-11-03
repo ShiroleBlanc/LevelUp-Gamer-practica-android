@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [User::class, Product::class, CartItem::class],
-    version = 1, // Incrementar si cambias el esquema
-    exportSchema = false // Puedes ponerlo a true si quieres exportar el esquema
+    version = 1,
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
@@ -36,7 +36,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "levelup_gamer_database" // Nombre del archivo de la BD
                 )
-                    // .fallbackToDestructiveMigration() // Usar con cuidado en desarrollo
                     .addCallback(DatabaseCallback(context)) // Para pre-popular datos
                     .build()
                 INSTANCE = instance
@@ -57,7 +56,6 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         suspend fun populateDatabase(productDao: ProductDao) {
-            // Aquí puedes insertar tu lista inicial de productos
             val initialProducts = listOf(
                 Product(
                     id = 1, name = "Catan", price = "$29.990 CLP", category = "Juegos de Mesa",

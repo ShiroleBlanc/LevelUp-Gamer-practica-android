@@ -43,8 +43,7 @@ class LoginViewModel(private val repository: AppRepository) : ViewModel() {
 
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
-            // ¡IMPORTANTE! Hashea la contraseña antes de compararla
-            val passwordHash = PasswordHasher.hash(password.value) // Necesitas implementar PasswordHasher
+            val passwordHash = PasswordHasher.hash(password.value)
 
             val result = repository.loginUser(email.value, passwordHash)
             _uiState.value = result.fold(
@@ -53,7 +52,6 @@ class LoginViewModel(private val repository: AppRepository) : ViewModel() {
             )
         }
     }
-    // Llama a esto para resetear el estado de error/éxito después de mostrar un mensaje
     fun consumeUiState() {
         _uiState.value = LoginUiState.Idle
     }

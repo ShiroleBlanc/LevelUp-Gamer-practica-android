@@ -11,13 +11,11 @@ import kotlinx.coroutines.launch
 // Estado de la UI del Carrito
 data class CartUiState(
     val items: List<CartItemWithDetails> = emptyList(),
-    val totalAmount: Double = 0.0, // Cambiado a Double para cálculos más precisos
+    val totalAmount: Double = 0.0,
     val isLoading: Boolean = true
 ) {
-    // Helper para formatear el total como CLP
     fun formattedTotal(): String {
-        // Implementa lógica de formato CLP aquí si es necesario, o usa Double directamente
-        return "$${totalAmount.toLong()}" // Formato simple por ahora
+        return "$${totalAmount.toLong()}"
     }
 }
 
@@ -28,7 +26,6 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         .map { items ->
             println("CartViewModel: Mapeando items, tamaño = ${items.size}")
             val total = items.sumOf { item ->
-                // Usa la función parsePrice importada o definida aquí
                 parsePrice(item.price) * item.quantity.toDouble()
             }
             CartUiState(items = items, totalAmount = total, isLoading = false)
@@ -55,15 +52,16 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch { repository.clearCart() }
     }
 
-    // --- Helper para parsear precio (igual que en el Context de React) ---
+    // --- Helper para parsear precio ---
     private fun parsePrice(value: String): Double {
-        if (!value.contains("$")) return 0.0 // Manejo básico si no tiene $
+        if (!value.contains("$")) return 0.0
         val cleaned = value.replace(Regex("[^0-9]"), "")
         return cleaned.toDoubleOrNull() ?: 0.0
     }
 }
 
 // Factory
+// --- Factory para crear instancias de CartViewModel ---
 class CartViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CartViewModel::class.java)) {

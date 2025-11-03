@@ -10,26 +10,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel para el Scaffold principal.
- * Se encarga de conocer el estado de autenticación (quién está logueado)
- * y de manejar el cierre de sesión.
- */
+
 class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
-    // Expone el Flow del usuario actual, convirtiéndolo a StateFlow
-    // (Arreglo para el error de mismatch Flow/StateFlow)
     val currentUser: StateFlow<User?> = repository.currentUser.stateIn(
-        scope = viewModelScope, // El scope del ViewModel
-        started = SharingStarted.WhileSubscribed(5000), // Inicia cuando la UI observa
-        initialValue = null // Asume null al inicio (no logueado)
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
     )
 
     // Función para cerrar la sesión
     fun logout() {
         viewModelScope.launch {
             repository.logoutUser()
-            // La navegación se manejará en el Composable observando `currentUser`
         }
     }
 }
@@ -39,7 +32,7 @@ class MainViewModelFactory(private val repository: AppRepository) : ViewModelPro
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return MainViewModel(repository) as T // (Corregido un typo aquí también)
+            return MainViewModel(repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

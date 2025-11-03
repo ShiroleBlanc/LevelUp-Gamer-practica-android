@@ -30,9 +30,7 @@ fun ProductCard(
     val imageResId = remember(product.image) {
         try {
             context.resources.getIdentifier(product.image.substringAfterLast('/'), "drawable", context.packageName)
-        } catch (e: Exception) {
-            // Manejar error si no se encuentra la imagen, poner un placeholder
-            // Por ejemplo: R.drawable.placeholder_image (debes añadirla a tus drawables)
+        } catch (e: Exception)
             0 // 0 significa que no se encontró
         }
     }
@@ -81,7 +79,7 @@ fun ProductCard(
                     Text(
                         text = product.price,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.secondary // Color de acento para el precio
+                        color = MaterialTheme.colorScheme.secondary
                     )
                     IconButton(onClick = { onAddToCartClick(product) }) {
                         Icon(

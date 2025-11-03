@@ -23,11 +23,9 @@ import com.example.levelup_gamerpractica.viewmodel.CartViewModel
 import com.example.levelup_gamerpractica.viewmodel.CartViewModelFactory
 import java.text.NumberFormat
 import java.util.Locale
-// Ya no necesitas Scaffold, TopAppBar ni ExperimentalMaterial3Api aquí
 
 @Composable
 fun CartScreen(
-    // 1. ACEPTA PADDINGVALUES
     paddingValues: PaddingValues,
     cartViewModel: CartViewModel = viewModel(
         factory = CartViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
@@ -42,14 +40,10 @@ fun CartScreen(
             maximumFractionDigits = 0
         }
     }
-
-    // 2. HEMOS QUITADO EL SCAFFOLD Y TOPAPPBAR
-
-    // 3. Aplicamos el padding al contenedor principal
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues) // <-- APLICA EL PADDING AQUÍ
+            .padding(paddingValues)
     ) {
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -62,7 +56,7 @@ fun CartScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f), // Ocupa el espacio disponible
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), // Ajusta el padding si es necesario
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.items, key = { item -> item.productId }) { item ->
@@ -141,7 +135,7 @@ fun CartScreen(
     }
 }
 
-// Composable para una fila del carrito (Sin cambios)
+// Composable para una fila del carrito
 @Composable
 fun CartItemRow(
     item: CartItemWithDetails,
@@ -173,7 +167,7 @@ fun CartItemRow(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Spacer(modifier = Modifier.size(60.dp).padding(end=12.dp)) // Placeholder
+                Spacer(modifier = Modifier.size(60.dp).padding(end=12.dp))
             }
 
 

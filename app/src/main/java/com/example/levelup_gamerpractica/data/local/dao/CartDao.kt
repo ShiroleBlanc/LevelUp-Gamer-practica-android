@@ -2,11 +2,10 @@ package com.example.levelup_gamerpractica.data.local.dao
 
 import androidx.room.*
 import com.example.levelup_gamerpractica.data.local.entities.CartItem
-import kotlinx.coroutines.flow.Flow // Importa Flow para datos reactivos
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CartDao {
-    // Observa todos los items del carrito (Flow se actualiza automáticamente)
     @Query("SELECT ci.productId, ci.quantity, p.name, p.price, p.image FROM cart_items ci LEFT JOIN products p ON ci.productId = p.id")
     fun getCartItemsWithDetails(): Flow<List<CartItemWithDetails>>
 

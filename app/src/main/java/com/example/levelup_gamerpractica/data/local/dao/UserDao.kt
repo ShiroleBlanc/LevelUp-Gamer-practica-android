@@ -10,6 +10,4 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun getUserByEmail(email: String): User?
-
-    // Faltarían métodos para actualizar perfil, contraseña, etc.
 }

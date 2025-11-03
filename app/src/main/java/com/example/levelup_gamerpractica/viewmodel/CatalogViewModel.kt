@@ -14,17 +14,13 @@ data class CatalogUiState(
     val categories: List<String> = emptyList(),
     val selectedCategory: String = "Todos",
     val isLoading: Boolean = true,
-    val userName: String? = null // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN!
+    val userName: String? = null
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
 
     private val _selectedCategory = MutableStateFlow("Todos")
-
-    // Combina el Flow de categorías y el Flow de productos filtrados
-    // Asumo que tu repositorio expone un Flow como este:
-// val currentUserNameFlow: Flow<String?> = ...
 
     val uiState: StateFlow<CatalogUiState> = combine(
         repository.allCategories, // Flow de todas las categorías
@@ -35,20 +31,20 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
                 repository.getProductsByCategory(category)
             }
         },
-        _selectedCategory, // Necesitamos el StateFlow de la categoría
-        repository.currentUserNameFlow // <-- 1. AÑADE EL FLOW DEL USUARIO AQUÍ
-    ) { categories, products, selectedCat, userName -> // <-- 2. RECIBE EL VALOR AQUÍ
+        _selectedCategory,
+        repository.currentUserNameFlow
+    ) { categories, products, selectedCat, userName ->
         CatalogUiState(
             products = products,
-            categories = listOf("Todos") + categories, // Añade "Todos" al principio
+            categories = listOf("Todos") + categories,
             selectedCategory = selectedCat,
-            userName = userName, // <-- 3. ASÍGNALO AL ESTADO (Ahora no dará error)
-            isLoading = false // O maneja un estado de carga si la carga inicial es lenta
+            userName = userName,
+            isLoading = false
         )
-    }.stateIn( // Convierte el Flow combinado en un StateFlow
+    }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000), // Empieza a colectar cuando hay suscriptores
-        initialValue = CatalogUiState() // Estado inicial mientras carga
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CatalogUiState()
     )
 
     fun selectCategory(category: String) {
@@ -59,12 +55,12 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
     fun addToCart(product: Product) {
         viewModelScope.launch {
             repository.addToCart(product.id)
-            // Podrías añadir un StateFlow para mostrar un Snackbar/Toast de confirmación
         }
     }
 }
 
 // Factory
+// --- Factory para crear instancias de CatalogViewModel ---
 class CatalogViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CatalogViewModel::class.java)) {

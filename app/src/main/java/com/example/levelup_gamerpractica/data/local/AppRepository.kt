@@ -12,24 +12,21 @@ import kotlinx.coroutines.flow.asStateFlow       // <-- IMPORTAR
 import kotlinx.coroutines.flow.map                 // <-- IMPORTAR
 import kotlinx.coroutines.withContext
 
-// Repositorio: Único punto de acceso a los datos (abstrae si vienen de BD local, red, etc.)
+// Repositorio: Único punto de acceso a los datos
 class AppRepository(private val database: AppDatabase) {
 
-    // --- User State Flow ---
     // Mantiene al usuario actual en memoria
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: Flow<User?> = _currentUser.asStateFlow()
 
     // Un Flow derivado que solo expone el nombre del usuario (o null)
-    // ¡Esto es lo que usará tu CatalogViewModel!
     val currentUserNameFlow: Flow<String?> = currentUser.map { user ->
-        user?.username // <-- ¡CORREGIDO! Coincide con tu entidad User.kt
+        user?.username
     }
 
-    // --- User Operations ---
+    // --- Operaciones de usuario ---
     suspend fun registerUser(user: User): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            // Simple validación (debería ser más robusta)
             if (database.userDao().getUserByEmail(user.email) != null) {
                 Result.failure(Exception("El correo ya está registrado."))
             } else {
@@ -44,33 +41,32 @@ class AppRepository(private val database: AppDatabase) {
     suspend fun loginUser(email: String, passwordHash: String): Result<User> = withContext(Dispatchers.IO) {
         try {
             val user = database.userDao().getUserByEmail(email)
-            if (user != null && user.passwordHash == passwordHash) { // Comparar hashes
-                _currentUser.value = user // <-- ¡CAMBIO IMPORTANTE! Guarda el usuario
+            if (user != null && user.passwordHash == passwordHash) {
+                _currentUser.value = user
                 Result.success(user)
             } else {
-                _currentUser.value = null // <-- Asegura que esté nulo si falla
+                _currentUser.value = null
                 Result.failure(Exception("Correo o contraseña incorrectos."))
             }
         } catch (e: Exception) {
-            _currentUser.value = null // <-- Asegura que esté nulo si hay error
+            _currentUser.value = null
             Result.failure(e)
         }
     }
 
-    // (Opcional pero recomendado) Añade una función de logout
+    // Añade una función de logout
     suspend fun logoutUser() = withContext(Dispatchers.IO) {
         _currentUser.value = null
-        // Opcionalmente, puedes limpiar el carrito al hacer logout
-        // clearCart()
+        clearCart()
     }
 
 
-    // --- Product Operations ---
+    // --- operaciones de producto ---
     val allProducts: Flow<List<Product>> = database.productDao().getAllProducts()
     val allCategories: Flow<List<String>> = database.productDao().getAllCategories()
     fun getProductsByCategory(category: String): Flow<List<Product>> = database.productDao().getProductsByCategory(category)
 
-    // --- Cart Operations ---
+    // --- Operaciones de carrito ---
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
 
     suspend fun addToCart(productId: Int) = withContext(Dispatchers.IO) {

@@ -18,7 +18,7 @@ import androidx.core.view.WindowCompat
 private val DarkColorScheme = darkColorScheme(
     primary = ElectricBlue,         // Color principal para botones, elementos activos
     onPrimary = PureWhite,          // Texto/iconos sobre el color primario
-    primaryContainer = DarkSurface, // Contenedor relacionado al primario (ej: fondo de Card)
+    primaryContainer = DarkSurface, // Contenedor relacionado al primario
     onPrimaryContainer = PureWhite, // Texto/iconos sobre primaryContainer
 
     secondary = NeonGreen,          // Color secundario para elementos flotantes, selección

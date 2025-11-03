@@ -27,11 +27,9 @@ import com.example.levelup_gamerpractica.viewmodel.LoginViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    // 1. AÑADE ESTE PARÁMETRO
     modifier: Modifier = Modifier,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    // Inyecta el ViewModel usando la factory
     loginViewModel: LoginViewModel = viewModel(
         factory = LoginViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     )
@@ -60,7 +58,6 @@ fun LoginScreen(
     }
 
     Column(
-        // 2. USA EL PARÁMETRO AQUÍ
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
@@ -100,7 +97,7 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Olvidó contraseña (simulado)
+        // Olvidó contraseña
         TextButton(onClick = { /* TODO: Implement forgot password */ }) {
             Text("¿Olvidaste tu contraseña?")
         }

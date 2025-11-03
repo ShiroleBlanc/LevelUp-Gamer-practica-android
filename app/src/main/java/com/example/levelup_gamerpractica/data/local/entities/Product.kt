@@ -5,13 +5,12 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "products")
 data class Product(
-    @PrimaryKey val id: Int, // Usar el ID del producto web
+    @PrimaryKey val id: Int,
     val name: String,
-    val price: String, // Mantener como String por formato CLP
+    val price: String,
     val category: String,
-    val image: String, // Guardar URL o identificador de recurso local
+    val image: String,
     val description: String,
     val manufacturer: String,
     val distributor: String
-    // No guardamos las reviews aquí directamente para normalizar
 )

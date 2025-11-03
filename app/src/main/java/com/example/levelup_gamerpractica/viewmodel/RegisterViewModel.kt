@@ -66,12 +66,11 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     // --- Función de Registro ---
     fun register() {
         if (!validateInputs()) {
-            return // Detiene si hay errores de validación
+            return
         }
 
         viewModelScope.launch {
             _uiState.value = RegisterUiState.Loading
-            // Hashea la contraseña antes de guardarla
             val passwordHash = PasswordHasher.hash(password.value)
 
             val newUser = User(

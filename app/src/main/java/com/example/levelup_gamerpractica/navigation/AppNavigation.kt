@@ -1,6 +1,6 @@
 package com.example.levelup_gamerpractica.navigation
 
-import androidx.compose.foundation.layout.padding // <-- 1. IMPORT AÑADIDO
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -25,12 +25,10 @@ fun AppNavigation() {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = Routes.CATALOG) {
-
-        // --- Rutas que AHORA SÍ tienen el Scaffold ---
         composable(Routes.LOGIN) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 LoginScreen(
-                    modifier = Modifier.padding(innerPadding), // Pasa el padding
+                    modifier = Modifier.padding(innerPadding),
                     onLoginSuccess = {
                         navController.navigate(Routes.CATALOG) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
@@ -43,7 +41,7 @@ fun AppNavigation() {
         composable(Routes.REGISTER) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 RegisterScreen(
-                    modifier = Modifier.padding(innerPadding), // Pasa el padding
+                    modifier = Modifier.padding(innerPadding),
                     onRegisterSuccess = {
                         navController.navigate(Routes.LOGIN) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
@@ -53,20 +51,17 @@ fun AppNavigation() {
                 )
             }
         }
-
-        // --- Rutas que YA tenían el Scaffold ---
         composable(Routes.CATALOG) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 CatalogScreen(
-                    paddingValues = innerPadding // Pasa el padding
-                    // onProductClick = { ... }
+                    paddingValues = innerPadding
                 )
             }
         }
         composable(Routes.CART) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 CartScreen(
-                    paddingValues = innerPadding // 2. ESTO AHORA FUNCIONARÁ
+                    paddingValues = innerPadding
                 )
             }
         }

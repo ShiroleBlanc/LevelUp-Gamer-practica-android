@@ -31,7 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.rememberVectorPainter // <-- IMPORTADO
+import androidx.compose.ui.graphics.vector.rememberVectorPainter 
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +66,6 @@ fun ProfileScreen(
     val oldPassword by profileViewModel.oldPassword.collectAsState()
     val newPassword by profileViewModel.newPassword.collectAsState()
     val confirmNewPassword by profileViewModel.confirmNewPassword.collectAsState()
-    // ----------------------------------------
 
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
@@ -93,7 +92,6 @@ fun ProfileScreen(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri: Uri? ->
             if (uri != null) {
-                // Ya no necesitamos permisos persistentes aquí
                 profileViewModel.updateProfilePicture(uri.toString())
             }
             showPhotoDialog = false
@@ -137,10 +135,7 @@ fun ProfileScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- Sección de Foto de Perfil ---
-        // --- INICIO DE LA CORRECCIÓN ---
         val fallbackPainter = rememberVectorPainter(Icons.Default.Person)
-        // --- FIN DE LA CORRECCIÓN ---
 
         Box(
             modifier = Modifier
@@ -155,21 +150,9 @@ fun ProfileScreen(
                 contentDescription = "Foto de perfil",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                // --- INICIO DE LA CORRECCIÓN ---
                 placeholder = fallbackPainter,
                 error = fallbackPainter,
                 fallback = fallbackPainter
-                /* El código antiguo que causaba el error:
-                fallback = {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Foto por defecto",
-                        modifier = Modifier.size(70.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                */
-                // --- FIN DE LA CORRECCIÓN ---
             )
             // Icono de "Editar" sobre la foto
             Box(

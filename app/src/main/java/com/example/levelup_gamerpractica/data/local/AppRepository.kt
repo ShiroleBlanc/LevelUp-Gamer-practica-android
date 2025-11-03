@@ -1,7 +1,7 @@
 package com.example.levelup_gamerpractica.data.local
 
-import android.content.Context // <-- IMPORTANTE
-import android.net.Uri // <-- IMPORTANTE
+import android.content.Context 
+import android.net.Uri 
 import com.example.levelup_gamerpractica.data.local.AppDatabase
 import com.example.levelup_gamerpractica.data.local.dao.CartItemWithDetails
 import com.example.levelup_gamerpractica.data.local.entities.CartItem
@@ -13,15 +13,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.io.File // <-- IMPORTANTE
-import java.io.FileOutputStream // <-- IMPORTANTE
-import java.util.UUID // <-- IMPORTANTE
+import java.io.File 
+import java.io.FileOutputStream 
+import java.util.UUID 
 
 // Repositorio: Único punto de acceso a los datos
-// --- 1. AÑADIR 'context' AL CONSTRUCTOR ---
 class AppRepository(
     private val database: AppDatabase,
-    private val context: Context // <-- AÑADIDO
+    private val context: Context 
 ) {
 
     // Mantiene al usuario actual en memoria
@@ -56,7 +55,6 @@ class AppRepository(
     suspend fun loginUser(email: String, passwordHash: String): Result<User> = withContext(Dispatchers.IO) {
         try {
             val user = database.userDao().getUserByEmail(email)
-            // Asumiendo que tu entidad User tiene un campo 'passwordHash'
             if (user != null && user.passwordHash == passwordHash) {
                 _currentUser.value = user
                 Result.success(user)
@@ -76,12 +74,7 @@ class AppRepository(
         clearCart() // Opcional: decide si el carrito debe borrarse al salir
     }
 
-    // --- 2. FUNCIÓN DE COPIAR IMAGEN (NUEVA) ---
-    /**
-     * Copia una imagen desde una URI de contenido a un archivo permanente
-     * en el almacenamiento interno de la app.
-     * Devuelve la ruta (path) del nuevo archivo.
-     */
+    // --- 2. FUNCIÓN DE COPIAR IMAGEN ---
     private fun copyImageToInternalStorage(contentUri: Uri): String {
         val inputStream = context.contentResolver.openInputStream(contentUri)
         // Crear un nombre de archivo único
@@ -100,11 +93,7 @@ class AppRepository(
     }
 
 
-    // --- 3. FUNCIÓN 'updateProfilePicture' MODIFICADA ---
-    /**
-     * Actualiza la foto de perfil del usuario logueado.
-     * Copia la imagen al almacenamiento interno y guarda la RUTA del archivo.
-     */
+    // --- 3. FUNCIÓN 'updateProfilePicture' ---
     suspend fun updateProfilePicture(contentUriString: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
@@ -131,10 +120,7 @@ class AppRepository(
         }
     }
 
-    // --- 4. FUNCIONES DE ACTUALIZACIÓN DE PERFIL (MODIFICADAS) ---
-    /**
-     * Actualiza el nombre de usuario y/o email del usuario actual.
-     */
+    // --- 4. FUNCIONES DE ACTUALIZACIÓN DE PERFIL ---
     suspend fun updateUserDetails(newUsername: String?, newEmail: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
@@ -159,16 +145,10 @@ class AppRepository(
             }
 
             val updatedUser = user.copy(username = finalUsername, email = finalEmail)
-
-            // --- INICIO DE LA CORRECCIÓN ---
-            // 2. Actualizar la base de datos
-            // database.userDao().updateUser(updatedUser) // <- Esta función no existe en tu DAO
-            // Usamos las funciones que sí existen:
             database.userDao().updateUsername(user.id, finalUsername)
             database.userDao().updateUserEmail(user.id, finalEmail)
-            // --- FIN DE LA CORRECCIÓN ---
 
-            // 3. Actualizar el StateFlow
+            // Actualizar el StateFlow
             _currentUser.value = updatedUser
             Result.success(Unit)
 
@@ -177,9 +157,6 @@ class AppRepository(
         }
     }
 
-    /**
-     * Actualiza la contraseña del usuario actual tras verificar la antigua.
-     */
     suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
@@ -242,10 +219,7 @@ class AppRepository(
         database.cartDao().deleteCartItem(productId)
     }
 
-    // --- INICIO DE LA CORRECCIÓN ---
-    // Esta función estaba rota por mi respuesta anterior
     suspend fun clearCart() = withContext(Dispatchers.IO) {
         database.cartDao().clearCart()
     }
-    // --- FIN DE LA CORRECCIÓN ---
 }

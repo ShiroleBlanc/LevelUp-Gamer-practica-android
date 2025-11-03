@@ -12,13 +12,23 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun getUserByEmail(email: String): User?
 
-    // --- FUNCIÓN AÑADIDA ---
-    // Obtiene un usuario por su ID (asumiendo que User tiene @PrimaryKey val id: Int)
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
     suspend fun getUserById(id: Int): User?
 
-    // --- FUNCIÓN AÑADIDA ---
-    // Actualiza la URI de la foto de perfil para un usuario específico por su ID
     @Query("UPDATE users SET profilePictureUri = :uri WHERE id = :userId")
     suspend fun updateProfilePicture(userId: Int, uri: String?)
+
+    // --- NUEVAS FUNCIONES AÑADIDAS ---
+
+    @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
+    suspend fun getUserByUsername(username: String): User?
+
+    @Query("UPDATE users SET username = :newUsername WHERE id = :userId")
+    suspend fun updateUsername(userId: Int, newUsername: String)
+
+    @Query("UPDATE users SET email = :newEmail WHERE id = :userId")
+    suspend fun updateUserEmail(userId: Int, newEmail: String)
+
+    @Query("UPDATE users SET passwordHash = :newPasswordHash WHERE id = :userId")
+    suspend fun updatePassword(userId: Int, newPasswordHash: String)
 }

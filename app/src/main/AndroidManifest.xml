@@ -11,6 +11,7 @@
     <!-- uses-feature moved here -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+
     <application
         android:name="com.example.levelup_gamerpractica.data.local.LevelUpGamerApplication"
         android:allowBackup="true"

@@ -4,16 +4,22 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.rememberVectorPainter // <-- 1. IMPORTAR ESTO
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import coil.compose.AsyncImage // Importar AsyncImage de Coil
 import com.example.levelup_gamerpractica.data.local.LevelUpGamerApplication
 import com.example.levelup_gamerpractica.navigation.Routes
 import com.example.levelup_gamerpractica.viewmodel.MainViewModel
@@ -96,6 +102,18 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 } else {
+                    // --- MENÚ PARA USUARIOS LOGUEADOS ---
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") }, // <-- Icono de Perfil
+                        label = { Text("Mi Perfil") },
+                        selected = currentRoute == Routes.PROFILE,
+                        onClick = {
+                            navController.navigate(Routes.PROFILE) // <-- Navega a Perfil
+                            scope.launch { drawerState.close() }
+                        },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Logout, contentDescription = "Cerrar Sesión") },
                         label = { Text("Cerrar Sesión") },
@@ -106,7 +124,7 @@ fun MainAppScaffold(
                             // Navegamos al Login AQUÍ, al hacer clic
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
-                            } // <- AÑADIR ESTE PARÉNTESIS DE CIERRE
+                            }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
@@ -120,9 +138,45 @@ fun MainAppScaffold(
                     title = { Text(getTitleForRoute(currentRoute, currentUser?.username)) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Abrir Menú")
+                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                        }
+                    },
+                    // --- 2. AÑADIR ESTE BLOQUE 'actions' ---
+                    actions = {
+                        // Solo muestra el icono de perfil si el usuario está logueado
+                        if (currentUser != null) {
+                            IconButton(
+                                onClick = { navController.navigate(Routes.PROFILE) },
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                // --- 3. CREAR EL PAINTER ---
+                                // Creamos un painter a partir del Icono de Vector
+                                val placeholderPainter = rememberVectorPainter(
+                                    Icons.Filled.AccountCircle
+                                )
+
+                                // Usa AsyncImage de Coil para cargar la foto
+                                AsyncImage(
+                                    model = currentUser?.profilePictureUri,
+                                    contentDescription = "Foto de perfil",
+
+                                    // --- 4. ASIGNAR EL PAINTER A LOS ESTADOS ---
+                                    // Icono mientras carga
+                                    placeholder = placeholderPainter,
+                                    // Icono si hay error
+                                    error = placeholderPainter,
+                                    // Icono si 'model' es null (fallback)
+                                    fallback = placeholderPainter,
+
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape), // Hace la imagen circular
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
                         }
                     }
+                    // --- FIN DEL BLOQUE AÑADIDO ---
                 )
             }
         ) { innerPadding ->
@@ -139,6 +193,8 @@ fun getTitleForRoute(route: String?, userName: String?): String {
         Routes.CART -> "Carrito"
         Routes.LOGIN -> "Iniciar Sesión"
         Routes.REGISTER -> "Registro"
+        Routes.PROFILE -> "Mi Perfil" // <-- 3. Añadir el título para la ruta de perfil
         else -> "LevelUp Gamer"
     }
 }
+

@@ -18,8 +18,6 @@ interface UserDao {
     @Query("UPDATE users SET profilePictureUri = :uri WHERE id = :userId")
     suspend fun updateProfilePicture(userId: Int, uri: String?)
 
-    // --- NUEVAS FUNCIONES AÑADIDAS ---
-
     @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
     suspend fun getUserByUsername(username: String): User?
 

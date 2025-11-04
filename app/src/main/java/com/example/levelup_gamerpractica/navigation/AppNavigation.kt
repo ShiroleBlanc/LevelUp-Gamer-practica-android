@@ -67,8 +67,6 @@ fun AppNavigation() {
                 )
             }
         }
-
-        // --- BLOQUE AÑADIDO PARA EL PERFIL ---
         composable(Routes.PROFILE) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 ProfileScreen(

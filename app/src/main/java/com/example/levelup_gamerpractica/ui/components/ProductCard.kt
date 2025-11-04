@@ -1,15 +1,23 @@
 package com.example.levelup_gamerpractica.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -34,7 +42,12 @@ fun ProductCard(
             0
         }
     }
+    var isPressed by remember { mutableStateOf(false) }
 
+    val iconScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.8f else 1f,
+        label = "Icon Scale Animation"
+    )
 
     Card(
         modifier = modifier.clickable { onProductClick(product.id) },
@@ -52,7 +65,10 @@ fun ProductCard(
                 )
             } else {
                 // Espacio reservado si no hay imagen o hay error
-                Spacer(modifier = Modifier.fillMaxWidth().aspectRatio(1f).padding(16.dp))
+                Spacer(modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .padding(16.dp))
                 Text("Imagen no disponible", style = MaterialTheme.typography.bodySmall)
             }
 
@@ -81,11 +97,24 @@ fun ProductCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.secondary
                     )
-                    IconButton(onClick = { onAddToCartClick(product) }) {
+                    IconButton(
+                        onClick = { onAddToCartClick(product) },
+                        modifier = Modifier.pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitFirstDown(requireUnconsumed = false)
+                                    isPressed = true
+                                    waitForUpOrCancellation()
+                                    isPressed = false
+                                }
+                            }
+                        }
+                    ) {
                         Icon(
-                            Icons.Filled.AddShoppingCart,
+                            imageVector = Icons.Filled.AddShoppingCart,
                             contentDescription = "Añadir al carrito",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.scale(iconScale)
                         )
                     }
                 }

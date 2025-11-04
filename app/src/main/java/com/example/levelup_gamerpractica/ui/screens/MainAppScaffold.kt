@@ -45,13 +45,14 @@ fun MainAppScaffold(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-
     // Observamos el estado del usuario desde el ViewModel
     val currentUser by mainViewModel.currentUser.collectAsState()
-
     // Observamos la ruta actual para saber qué item del menú resaltar
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Esto hace el código más robusto si cambias la pantalla inicial en el futuro.
+    val startDestinationId = navController.graph.startDestinationId
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -65,7 +66,11 @@ fun MainAppScaffold(
                     label = { Text("Catálogo") },
                     selected = currentRoute == Routes.CATALOG,
                     onClick = {
-                        navController.navigate(Routes.CATALOG)
+                        navController.navigate(Routes.CATALOG) {
+                            popUpTo(startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                         scope.launch { drawerState.close() }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -75,7 +80,11 @@ fun MainAppScaffold(
                     label = { Text("Carrito") },
                     selected = currentRoute == Routes.CART,
                     onClick = {
-                        navController.navigate(Routes.CART)
+                        navController.navigate(Routes.CART) {
+                            popUpTo(startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                         scope.launch { drawerState.close() }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -92,7 +101,11 @@ fun MainAppScaffold(
                         label = { Text("Iniciar Sesión") },
                         selected = currentRoute == Routes.LOGIN,
                         onClick = {
-                            navController.navigate(Routes.LOGIN)
+                            navController.navigate(Routes.LOGIN) {
+                                popUpTo(startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -102,7 +115,11 @@ fun MainAppScaffold(
                         label = { Text("Registrarme") },
                         selected = currentRoute == Routes.REGISTER,
                         onClick = {
-                            navController.navigate(Routes.REGISTER)
+                            navController.navigate(Routes.REGISTER) {
+                                popUpTo(startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -110,11 +127,15 @@ fun MainAppScaffold(
                 } else {
                     // --- MENÚ PARA USUARIOS LOGUEADOS ---
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") }, // <-- Icono de Perfil
+                        icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") },
                         label = { Text("Mi Perfil") },
                         selected = currentRoute == Routes.PROFILE,
                         onClick = {
-                            navController.navigate(Routes.PROFILE) // <-- Navega a Perfil
+                            navController.navigate(Routes.PROFILE) {
+                                popUpTo(startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -127,7 +148,6 @@ fun MainAppScaffold(
                         onClick = {
                             mainViewModel.logout()
                             scope.launch { drawerState.close() }
-                            // Navegamos al Login AQUÍ, al hacer clic
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                             }

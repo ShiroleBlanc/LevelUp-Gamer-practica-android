@@ -1,7 +1,10 @@
 package com.example.levelup_gamerpractica.ui.screens
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -10,11 +13,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.rememberVectorPainter 
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -25,7 +31,7 @@ import com.example.levelup_gamerpractica.navigation.Routes
 import com.example.levelup_gamerpractica.viewmodel.MainViewModel
 import com.example.levelup_gamerpractica.viewmodel.MainViewModelFactory
 import kotlinx.coroutines.launch
-
+import com.example.levelup_gamerpractica.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,15 +138,35 @@ fun MainAppScaffold(
             }
         }
     ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(getTitleForRoute(currentRoute, currentUser?.username)) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
-                        }
-                    },
+        Scaffold(            topBar = {
+            TopAppBar(
+                title = {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = getTitleForRoute(currentRoute, currentUser?.username),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // EL LOGO
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .height(40.dp)
+                                .padding(end = 8.dp)
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                    }
+                },
                     actions = {
                         // Solo muestra el icono de perfil si el usuario está logueado
                         if (currentUser != null) {
@@ -185,7 +211,7 @@ fun MainAppScaffold(
 // Función helper para obtener el título de la TopAppBar
 fun getTitleForRoute(route: String?, userName: String?): String {
     return when (route) {
-        Routes.CATALOG -> userName ?: "Catálogo"
+        Routes.CATALOG -> "Catálogo"
         Routes.CART -> "Carrito"
         Routes.LOGIN -> "Iniciar Sesión"
         Routes.REGISTER -> "Registro"

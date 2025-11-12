@@ -41,6 +41,9 @@ android {
 }
 
 dependencies {
+    // Retrofit y Gson Converter
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation(libs.androidx.compose.foundation)
     val room_version = "2.8.3"

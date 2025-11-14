@@ -55,7 +55,7 @@ fun CartScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.weight(1f), // Ocupa el espacio disponible
+                modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -135,7 +135,6 @@ fun CartScreen(
     }
 }
 
-// Composable para una fila del carrito
 @Composable
 fun CartItemRow(
     item: CartItemWithDetails,
@@ -199,7 +198,7 @@ fun CartItemRow(
     }
 }
 
-// Helper para parsear precio (Sin cambios)
+// Helper para parsear precio
 private fun parsePrice(value: String): Double {
     if (!value.contains("$")) return 0.0
     val cleaned = value.replace(Regex("[^0-9]"), "")

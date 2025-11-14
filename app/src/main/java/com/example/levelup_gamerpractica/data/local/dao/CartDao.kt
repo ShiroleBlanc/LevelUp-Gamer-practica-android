@@ -9,28 +9,22 @@ interface CartDao {
     @Query("SELECT ci.productId, ci.quantity, p.name, p.price, p.image FROM cart_items ci LEFT JOIN products p ON ci.productId = p.id")
     fun getCartItemsWithDetails(): Flow<List<CartItemWithDetails>>
 
-    // Inserta o actualiza un item (si ya existe, reemplaza)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCartItem(item: CartItem)
 
-    // Actualiza la cantidad (más eficiente que upsert si solo cambia cantidad)
     @Query("UPDATE cart_items SET quantity = :quantity WHERE productId = :productId")
     suspend fun updateQuantity(productId: Int, quantity: Int)
 
-    // Elimina un item
     @Query("DELETE FROM cart_items WHERE productId = :productId")
     suspend fun deleteCartItem(productId: Int)
 
-    // Vacía el carrito
     @Query("DELETE FROM cart_items")
     suspend fun clearCart()
 
-    // Query para obtener un item específico (útil para saber si existe)
     @Query("SELECT * FROM cart_items WHERE productId = :productId LIMIT 1")
     suspend fun getCartItem(productId: Int): CartItem?
 }
 
-// Clase de datos para combinar CartItem y ProductDetails
 data class CartItemWithDetails(
     val productId: Int,
     val quantity: Int,

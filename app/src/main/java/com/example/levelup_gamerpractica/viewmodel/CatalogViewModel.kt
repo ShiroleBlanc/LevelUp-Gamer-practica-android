@@ -23,16 +23,14 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
     private val _selectedCategory = MutableStateFlow("Todos")
 
     init {
-        // Cuando el ViewModel se crea, pide al repositorio que refresque
-        // los productos.
         viewModelScope.launch {
             repository.refreshProducts()
         }
     }
 
     val uiState: StateFlow<CatalogUiState> = combine(
-        repository.allCategories, // Flow de todas las categorías
-        _selectedCategory.flatMapLatest { category -> // Flow que cambia según la categoría
+        repository.allCategories,
+        _selectedCategory.flatMapLatest { category ->
             if (category == "Todos") {
                 repository.allProducts
             } else {
@@ -59,7 +57,6 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
         _selectedCategory.value = category
     }
 
-    // Función para añadir al carrito (usando el repositorio)
     fun addToCart(product: Product) {
         viewModelScope.launch {
             repository.addToCart(product.id)
@@ -67,8 +64,6 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
     }
 }
 
-// Factory
-// --- Factory para crear instancias de CatalogViewModel ---
 class CatalogViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CatalogViewModel::class.java)) {

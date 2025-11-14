@@ -8,8 +8,6 @@ import com.example.levelup_gamerpractica.data.local.entities.User
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
-
-// Estado de la UI para la pantalla de perfil
 data class ProfileUiState(
     val user: User? = null,
     val isLoading: Boolean = false,
@@ -19,7 +17,6 @@ data class ProfileUiState(
 
 class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
 
-    // --- StateFlows para los campos de texto editables ---
     val username = MutableStateFlow("")
     val email = MutableStateFlow("")
     val oldPassword = MutableStateFlow("")
@@ -30,11 +27,9 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
-        // Observa al usuario del repositorio y actualiza el estado local
         viewModelScope.launch {
             repository.currentUser.collect { user ->
                 _uiState.value = _uiState.value.copy(user = user)
-                // Rellena los campos de texto con los datos del usuario
                 user?.let {
                     username.value = it.username
                     email.value = it.email
@@ -43,7 +38,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    // --- Función de Hashing (simple, considera usar Kriptonit o similar) ---
     private fun hashPassword(password: String): String {
         return MessageDigest.getInstance("SHA-256")
             .digest(password.toByteArray())
@@ -94,12 +88,11 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
      * Llama al repositorio para actualizar la contraseña
      */
     fun updatePassword() {
-        // 1. Validaciones de la UI (no están en el ViewModel, pero deberían estar aquí)
         if (newPassword.value != confirmNewPassword.value) {
             _uiState.value = _uiState.value.copy(error = "Las nuevas contraseñas no coinciden.")
             return
         }
-        if (newPassword.value.length < 6) { // Ejemplo de validación
+        if (newPassword.value.length < 6) {
             _uiState.value = _uiState.value.copy(error = "La nueva contraseña debe tener al menos 6 caracteres.")
             return
         }
@@ -115,10 +108,8 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
                 newPasswordHash = newHash
             )
 
-            // 3. Manejar resultado
             result.onSuccess {
                 _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
-                // Limpiar campos de contraseña
                 oldPassword.value = ""
                 newPassword.value = ""
                 confirmNewPassword.value = ""
@@ -129,7 +120,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
     }
 }
 
-// Factory para ProfileViewModel
 class ProfileViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {

@@ -19,7 +19,6 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         initialValue = null
     )
 
-    // Función para cerrar la sesión
     fun logout() {
         viewModelScope.launch {
             repository.logoutUser()
@@ -27,7 +26,6 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     }
 }
 
-// Factory para el MainViewModel
 class MainViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {

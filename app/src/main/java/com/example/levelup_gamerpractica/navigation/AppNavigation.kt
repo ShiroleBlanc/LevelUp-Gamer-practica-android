@@ -13,7 +13,6 @@ import com.example.levelup_gamerpractica.ui.screens.ProfileScreen
 import com.example.levelup_gamerpractica.ui.screens.RegisterScreen
 import com.example.levelup_gamerpractica.ui.screens.MainAppScaffold
 
-// Define las rutas como constantes
 object Routes {
     const val LOGIN = "login"
     const val REGISTER = "register"

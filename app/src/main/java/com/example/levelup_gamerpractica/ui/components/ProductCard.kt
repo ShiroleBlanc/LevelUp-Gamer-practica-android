@@ -34,7 +34,6 @@ fun ProductCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Intenta obtener el ID del recurso drawable a partir del nombre guardado
     val imageResId = remember(product.image) {
         try {
             context.resources.getIdentifier(product.image.substringAfterLast('/'), "drawable", context.packageName)
@@ -60,11 +59,10 @@ fun ProductCard(
                     contentDescription = product.name,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f), // Imagen cuadrada
+                        .aspectRatio(1f),
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Espacio reservado si no hay imagen o hay error
                 Spacer(modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)

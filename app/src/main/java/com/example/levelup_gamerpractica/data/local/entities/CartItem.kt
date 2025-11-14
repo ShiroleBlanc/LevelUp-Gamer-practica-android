@@ -3,7 +3,6 @@ package com.example.levelup_gamerpractica.data.local.entities
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
-import com.example.levelup_gamerpractica.data.local.entities.Product
 
 
 @Entity(
@@ -12,7 +11,7 @@ import com.example.levelup_gamerpractica.data.local.entities.Product
         entity = Product::class,
         parentColumns = ["id"],
         childColumns = ["productId"],
-        onDelete = ForeignKey.CASCADE // Si se borra un producto, se borra del carrito
+        onDelete = ForeignKey.CASCADE
     )]
 )
 data class CartItem(

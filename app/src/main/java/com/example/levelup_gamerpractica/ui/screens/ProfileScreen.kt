@@ -59,7 +59,6 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
 
-    // --- Recolectar estado del ViewModel ---
     val uiState by profileViewModel.uiState.collectAsState()
     val username by profileViewModel.username.collectAsState()
     val email by profileViewModel.email.collectAsState()
@@ -73,7 +72,6 @@ fun ProfileScreen(
 
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
-    // --- Manejo de UI (Errores/Éxito) ---
     LaunchedEffect(uiState.error, uiState.isSuccess) {
         if (uiState.error != null) {
             Toast.makeText(context, uiState.error, Toast.LENGTH_LONG).show()
@@ -87,7 +85,6 @@ fun ProfileScreen(
         }
     }
 
-    // --- Lanzador de Galería (Moderno) ---
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri: Uri? ->
@@ -98,7 +95,6 @@ fun ProfileScreen(
         }
     )
 
-    // --- Lanzador de Cámara ---
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
         onResult = { success: Boolean ->
@@ -111,12 +107,10 @@ fun ProfileScreen(
         }
     )
 
-    // --- Lanzador de Permisos ---
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted: Boolean ->
             if (isGranted) {
-                // Permiso concedido, lanzar la cámara
                 val newUri = context.createImageUri()
                 tempCameraUri = newUri
                 cameraLauncher.launch(newUri)
@@ -127,7 +121,6 @@ fun ProfileScreen(
         }
     )
 
-    // --- UI Principal ---
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -154,7 +147,6 @@ fun ProfileScreen(
                 error = fallbackPainter,
                 fallback = fallbackPainter
             )
-            // Icono de "Editar" sobre la foto
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -184,7 +176,6 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(32.dp))
         Divider()
 
-        // --- Botones de Acción ---
         ProfileButton(
             text = "Editar Perfil (Nombre/Email)",
             icon = Icons.Default.Person,
@@ -197,7 +188,6 @@ fun ProfileScreen(
         )
     }
 
-    // --- Diálogo: Elegir Foto (Galería o Cámara) ---
     if (showPhotoDialog) {
         AlertDialog(
             onDismissRequest = { showPhotoDialog = false },
@@ -214,7 +204,6 @@ fun ProfileScreen(
             dismissButton = {
                 TextButton(
                     onClick = {
-                        // Pedir permiso de cámara antes de lanzarla
                         permissionLauncher.launch(Manifest.permission.CAMERA)
                     }
                 ) { Text("Cámara") }
@@ -222,7 +211,6 @@ fun ProfileScreen(
         )
     }
 
-    // --- Diálogo: Editar Perfil ---
     if (showEditDialog) {
         EditProfileDialog(
             username = username,
@@ -237,7 +225,6 @@ fun ProfileScreen(
         )
     }
 
-    // --- Diálogo: Cambiar Contraseña ---
     if (showPasswordDialog) {
         ChangePasswordDialog(
             oldPassword = oldPassword,
@@ -255,7 +242,6 @@ fun ProfileScreen(
     }
 }
 
-// --- Componentes de Diálogos (Internos) ---
 
 @Composable
 private fun ProfileButton(text: String, icon: ImageVector, onClick: () -> Unit) {

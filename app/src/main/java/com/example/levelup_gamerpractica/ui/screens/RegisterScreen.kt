@@ -56,7 +56,6 @@ fun RegisterScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
-    // Manejo de estado de UI (error/éxito)
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is RegisterUiState.Success -> {
@@ -72,7 +71,6 @@ fun RegisterScreen(
         }
     }
 
-    // --- Date Picker Dialog ---
     val calendar = Calendar.getInstance()
     val year = calendar.get(Calendar.YEAR)
     val month = calendar.get(Calendar.MONTH)
@@ -82,7 +80,7 @@ fun RegisterScreen(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
-            .verticalScroll(rememberScrollState()), // Permite scroll si el teclado tapa
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

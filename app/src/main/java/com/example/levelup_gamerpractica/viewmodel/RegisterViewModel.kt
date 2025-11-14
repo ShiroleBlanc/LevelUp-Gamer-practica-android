@@ -10,9 +10,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.Period
-import java.time.format.DateTimeParseException
-
-// Estados posibles de la UI de Registro
 sealed class RegisterUiState {
     object Idle : RegisterUiState()
     object Loading : RegisterUiState()
@@ -22,7 +19,6 @@ sealed class RegisterUiState {
 
 class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
 
-    // --- StateFlows para los campos del formulario ---
     private val _username = MutableStateFlow("")
     val username = _username.asStateFlow()
 
@@ -35,14 +31,12 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     private val _confirmPassword = MutableStateFlow("")
     val confirmPassword = _confirmPassword.asStateFlow()
 
-    private val _birthDate = MutableStateFlow<LocalDate?>(null) // Guardar como LocalDate
+    private val _birthDate = MutableStateFlow<LocalDate?>(null)
     val birthDate = _birthDate.asStateFlow()
 
-    // --- StateFlow para el estado general de la UI ---
     private val _uiState = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
-    // --- StateFlows para errores de validación por campo ---
     private val _usernameError = MutableStateFlow<String?>(null)
     val usernameError = _usernameError.asStateFlow()
     private val _emailError = MutableStateFlow<String?>(null)
@@ -55,7 +49,6 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     val birthDateError = _birthDateError.asStateFlow()
 
 
-    // --- Funciones para actualizar los campos ---
     fun onUsernameChange(value: String) { _username.value = value; _usernameError.value = null }
     fun onEmailChange(value: String) { _email.value = value; _emailError.value = null }
     fun onPasswordChange(value: String) { _password.value = value; _passwordError.value = null }
@@ -63,7 +56,6 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     fun onBirthDateChange(date: LocalDate?) { _birthDate.value = date; _birthDateError.value = null }
 
 
-    // --- Función de Registro ---
     fun register() {
         if (!validateInputs()) {
             return
@@ -87,7 +79,6 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    // --- Validación de Entradas ---
     private fun validateInputs(): Boolean {
         var isValid = true
         // Limpia errores previos
@@ -143,13 +134,11 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
         return isValid
     }
 
-    // Llama a esto para resetear el estado de error/éxito después de mostrar un mensaje
     fun consumeUiState() {
         _uiState.value = RegisterUiState.Idle
     }
 }
 
-// Factory para el ViewModel
 class RegisterViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(RegisterViewModel::class.java)) {

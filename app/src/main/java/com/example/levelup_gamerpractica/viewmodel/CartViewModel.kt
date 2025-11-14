@@ -8,7 +8,6 @@ import com.example.levelup_gamerpractica.data.local.dao.CartItemWithDetails
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-// Estado de la UI del Carrito
 data class CartUiState(
     val items: List<CartItemWithDetails> = emptyList(),
     val totalAmount: Double = 0.0,
@@ -21,7 +20,6 @@ data class CartUiState(
 
 class CartViewModel(private val repository: AppRepository) : ViewModel() {
 
-    // Combina el Flow del carrito con el cálculo del total
     val uiState: StateFlow<CartUiState> = repository.cartItems
         .map { items ->
             println("CartViewModel: Mapeando items, tamaño = ${items.size}")
@@ -52,7 +50,6 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch { repository.clearCart() }
     }
 
-    // --- Helper para parsear precio ---
     private fun parsePrice(value: String): Double {
         if (!value.contains("$")) return 0.0
         val cleaned = value.replace(Regex("[^0-9]"), "")
@@ -60,8 +57,6 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
     }
 }
 
-// Factory
-// --- Factory para crear instancias de CartViewModel ---
 class CartViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CartViewModel::class.java)) {

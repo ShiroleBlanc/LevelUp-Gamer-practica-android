@@ -37,7 +37,6 @@ import com.example.levelup_gamerpractica.R
 @Composable
 fun MainAppScaffold(
     navController: NavController,
-    // ViewModel para saber el estado de autenticación
     mainViewModel: MainViewModel = viewModel(
         factory = MainViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     ),
@@ -45,13 +44,10 @@ fun MainAppScaffold(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    // Observamos el estado del usuario desde el ViewModel
     val currentUser by mainViewModel.currentUser.collectAsState()
-    // Observamos la ruta actual para saber qué item del menú resaltar
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Esto hace el código más robusto si cambias la pantalla inicial en el futuro.
     val startDestinationId = navController.graph.startDestinationId
 
     ModalNavigationDrawer(
@@ -59,8 +55,6 @@ fun MainAppScaffold(
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // --- Items SIEMPRE visibles ---
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Storefront, contentDescription = "Catálogo") },
                     label = { Text("Catálogo") },
@@ -90,12 +84,9 @@ fun MainAppScaffold(
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
 
-                // Divider para separar las secciones
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // --- INICIO: LÓGICA CONDICIONAL DEL MENÚ ---
                 if (currentUser == null) {
-                    // --- MENÚ PARA USUARIOS NO LOGUEADOS ---
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión") },
                         label = { Text("Iniciar Sesión") },
@@ -125,7 +116,6 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 } else {
-                    // --- MENÚ PARA USUARIOS LOGUEADOS ---
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") },
                         label = { Text("Mi Perfil") },
@@ -188,32 +178,25 @@ fun MainAppScaffold(
                     }
                 },
                     actions = {
-                        // Solo muestra el icono de perfil si el usuario está logueado
                         if (currentUser != null) {
                             IconButton(
                                 onClick = { navController.navigate(Routes.PROFILE) },
                                 modifier = Modifier.padding(end = 8.dp)
                             ) {
-                                // Creamos un painter a partir del Icono de Vector
                                 val placeholderPainter = rememberVectorPainter(
                                     Icons.Filled.AccountCircle
                                 )
-
-                                // Usa AsyncImage de Coil para cargar la foto
                                 AsyncImage(
                                     model = currentUser?.profilePictureUri,
                                     contentDescription = "Foto de perfil",
 
-                                    // Icono mientras carga
                                     placeholder = placeholderPainter,
-                                    // Icono si hay error
                                     error = placeholderPainter,
-                                    // Icono si 'model' es null (fallback)
                                     fallback = placeholderPainter,
 
                                     modifier = Modifier
                                         .size(32.dp)
-                                        .clip(CircleShape), // Hace la imagen circular
+                                        .clip(CircleShape),
                                     contentScale = ContentScale.Crop
                                 )
                             }

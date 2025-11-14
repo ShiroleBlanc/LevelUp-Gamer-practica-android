@@ -41,19 +41,18 @@ fun LoginScreen(
 
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Efecto para manejar cambios en el estado de la UI (errores, éxito)
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is LoginUiState.Success -> {
                 Toast.makeText(context, "Inicio de sesión exitoso", Toast.LENGTH_SHORT).show()
                 onLoginSuccess()
-                loginViewModel.consumeUiState() // Resetea el estado
+                loginViewModel.consumeUiState()
             }
             is LoginUiState.Error -> {
                 Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
-                loginViewModel.consumeUiState() // Resetea el estado
+                loginViewModel.consumeUiState()
             }
-            else -> {} // Idle or Loading
+            else -> {}
         }
     }
 
@@ -97,16 +96,14 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Olvidó contraseña
         TextButton(onClick = { /* TODO: Implement forgot password */ }) {
             Text("¿Olvidaste tu contraseña?")
         }
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón de Login con indicador de carga
         Button(
             onClick = { loginViewModel.login() },
-            enabled = uiState != LoginUiState.Loading, // Deshabilita mientras carga
+            enabled = uiState != LoginUiState.Loading,
             modifier = Modifier.fillMaxWidth()
         ) {
             AnimatedVisibility(

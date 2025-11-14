@@ -7,8 +7,6 @@ import com.example.levelup_gamerpractica.data.local.AppRepository
 import com.example.levelup_gamerpractica.utils.PasswordHasher
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-
-// Estados posibles de la UI de Login
 sealed class LoginUiState {
     object Idle : LoginUiState()
     object Loading : LoginUiState()
@@ -57,7 +55,6 @@ class LoginViewModel(private val repository: AppRepository) : ViewModel() {
     }
 }
 
-// Factory para poder inyectar el repositorio en el ViewModel
 class LoginViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {

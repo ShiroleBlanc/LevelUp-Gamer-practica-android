@@ -15,13 +15,21 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File 
 import java.io.FileOutputStream 
-import java.util.UUID 
+import java.util.UUID
+import com.example.levelup_gamerpractica.data.remote.RetrofitInstance
+import com.example.levelup_gamerpractica.data.remote.ProductNetworkDto
+import java.text.NumberFormat // Importar para formatear el precio
+import java.util.Locale // Importar para el formato de CLP
 
 // Repositorio: Único punto de acceso a los datos
 class AppRepository(
     private val database: AppDatabase,
     private val context: Context 
 ) {
+
+    // 1. Obtén la instancia de la API
+    private val apiService = RetrofitInstance.api
+    private val productDao = database.productDao() // Acceso directo al DAO
 
     // Mantiene al usuario actual en memoria
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -178,11 +186,58 @@ class AppRepository(
         }
     }
 
+    // Esto convierte el DTO de Red al Modelo de Room
+    private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
+        // Formateador de CLP (¡Igual al de tu CartScreen!)
+        val formatClp = NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
+            maximumFractionDigits = 0
+        }
+        val formattedPrice = formatClp.format(dto.price) // Convierte 29990.0 a "$29.990 CLP"
+
+        return Product(
+            id = dto.id.toInt(), // Convierte Long a Int
+            name = dto.name,
+            price = formattedPrice, // Usa el precio formateado
+            category = dto.category,
+            image = dto.image, // Asume que 'imageUrl' del backend es solo el nombre (ej: "catan")
+            description = dto.description,
+            manufacturer = dto.manufacturer,
+            distributor = dto.distributor
+        )
+    }
+
+    // --- 3. CREA LA FUNCIÓN DE "REFRESCAR" ---
+    suspend fun refreshProducts() {
+        // Corre en el hilo de IO (Entrada/Salida)
+        withContext(Dispatchers.IO) {
+            try {
+                // Llama a la API
+                val productDtoList = apiService.getAllProducts()
+
+                // Mapea la lista de DTOs a Entidades de Room
+                val productEntityList = productDtoList.map { mapDtoToEntity(it) }
+
+                // Inserta los nuevos datos en Room
+                // (Room se encargará de reemplazar los viejos gracias a OnConflictStrategy.REPLACE)
+                productDao.insertAll(productEntityList)
+
+                println("AppRepository: Productos actualizados desde la API.")
+
+            } catch (e: Exception) {
+                // Maneja el error (ej. no hay internet, el servidor está caído)
+                println("AppRepository: Error al refrescar productos: ${e.message}")
+                // Aquí podrías emitir un error a la UI si quisieras
+            }
+        }
+    }
+
 
     // --- operaciones de producto ---
-    val allProducts: Flow<List<Product>> = database.productDao().getAllProducts()
-    val allCategories: Flow<List<String>> = database.productDao().getAllCategories()
-    fun getProductsByCategory(category: String): Flow<List<Product>> = database.productDao().getProductsByCategory(category)
+    val allProducts: Flow<List<Product>> = productDao.getAllProducts()
+    val allCategories: Flow<List<String>> = productDao.getAllCategories()
+    fun getProductsByCategory(category: String): Flow<List<Product>> = productDao.getProductsByCategory(category)
+
+
 
     // --- Operaciones de carrito ---
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()

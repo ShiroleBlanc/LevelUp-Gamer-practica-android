@@ -22,6 +22,14 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
 
     private val _selectedCategory = MutableStateFlow("Todos")
 
+    init {
+        // Cuando el ViewModel se crea, pide al repositorio que refresque
+        // los productos.
+        viewModelScope.launch {
+            repository.refreshProducts()
+        }
+    }
+
     val uiState: StateFlow<CatalogUiState> = combine(
         repository.allCategories, // Flow de todas las categorías
         _selectedCategory.flatMapLatest { category -> // Flow que cambia según la categoría

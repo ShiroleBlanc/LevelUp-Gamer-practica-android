@@ -5,27 +5,37 @@ import com.example.levelup_gamerpractica.data.local.entities.User
 
 @Dao
 interface UserDao {
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+
+    // Insertar o actualizar usuario (Login/Registro)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: User)
 
+    // Buscar por email
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun getUserByEmail(email: String): User?
 
-    @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
-    suspend fun getUserById(id: Int): User?
-
-    @Query("UPDATE users SET profilePictureUri = :uri WHERE id = :userId")
-    suspend fun updateProfilePicture(userId: Int, uri: String?)
-
+    // Buscar por username
     @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
     suspend fun getUserByUsername(username: String): User?
 
+    // --- AQUÍ ESTABA EL ERROR ---
+    // Antes decía: "UPDATE users SET profilePictureUri = :imagePath..."
+    // Ahora debe decir: "profilePictureUrl"
+    @Query("UPDATE users SET profilePictureUrl = :imagePath WHERE id = :userId")
+    suspend fun updateProfilePicture(userId: Long, imagePath: String?)
+
+    // Actualizar contraseña (opcional, ya que el backend manda)
+    // Asegúrate de que la columna en SQL coincida con la entidad (passwordHash ya no existe, recuerda)
+    // Si eliminaste passwordHash de la entidad, borra o comenta este método.
+    // @Query("UPDATE users SET passwordHash = :newPassword WHERE id = :userId")
+    // suspend fun updatePassword(userId: Long, newPassword: String)
+
     @Query("UPDATE users SET username = :newUsername WHERE id = :userId")
-    suspend fun updateUsername(userId: Int, newUsername: String)
+    suspend fun updateUsername(userId: Long, newUsername: String)
 
     @Query("UPDATE users SET email = :newEmail WHERE id = :userId")
-    suspend fun updateUserEmail(userId: Int, newEmail: String)
+    suspend fun updateUserEmail(userId: Long, newEmail: String)
 
-    @Query("UPDATE users SET passwordHash = :newPasswordHash WHERE id = :userId")
-    suspend fun updatePassword(userId: Int, newPasswordHash: String)
+    @Query("DELETE FROM users")
+    suspend fun deleteAllUsers()
 }

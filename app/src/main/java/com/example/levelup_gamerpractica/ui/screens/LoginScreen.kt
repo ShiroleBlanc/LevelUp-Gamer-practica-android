@@ -5,7 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person // Icono de persona
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -34,7 +34,8 @@ fun LoginScreen(
         factory = LoginViewModelFactory((LocalContext.current.applicationContext as LevelUpGamerApplication).repository)
     )
 ) {
-    val email by loginViewModel.email.collectAsState()
+    // CAMBIO: Observamos 'username' en vez de 'email'
+    val username by loginViewModel.username.collectAsState()
     val password by loginViewModel.password.collectAsState()
     val uiState by loginViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -49,6 +50,7 @@ fun LoginScreen(
                 loginViewModel.consumeUiState()
             }
             is LoginUiState.Error -> {
+                // Aquí se mostrará "Credenciales incorrectas" si el backend falla
                 Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
                 loginViewModel.consumeUiState()
             }
@@ -66,12 +68,12 @@ fun LoginScreen(
         Text("Iniciar Sesión", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(32.dp))
 
+        // CAMBIO: Campo de Nombre de Usuario
         OutlinedTextField(
-            value = email,
-            onValueChange = loginViewModel::onEmailChange,
-            label = { Text("Correo Electrónico") },
-            leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "Email Icon") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            value = username,
+            onValueChange = loginViewModel::onUsernameChange,
+            label = { Text("Nombre de Usuario") }, // Etiqueta correcta
+            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "Username Icon") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )

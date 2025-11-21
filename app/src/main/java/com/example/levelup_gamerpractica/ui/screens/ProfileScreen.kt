@@ -139,7 +139,7 @@ fun ProfileScreen(
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = uiState.user?.profilePictureUri,
+                model = uiState.user?.profilePictureUrl,
                 contentDescription = "Foto de perfil",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

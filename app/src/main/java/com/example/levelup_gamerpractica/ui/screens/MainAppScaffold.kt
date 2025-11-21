@@ -187,7 +187,7 @@ fun MainAppScaffold(
                                     Icons.Filled.AccountCircle
                                 )
                                 AsyncImage(
-                                    model = currentUser?.profilePictureUri,
+                                    model = currentUser?.profilePictureUrl,
                                     contentDescription = "Foto de perfil",
 
                                     placeholder = placeholderPainter,

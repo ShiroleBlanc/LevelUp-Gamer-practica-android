@@ -4,9 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.levelup_gamerpractica.data.local.AppRepository
-import com.example.levelup_gamerpractica.utils.PasswordHasher
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
 sealed class LoginUiState {
     object Idle : LoginUiState()
     object Loading : LoginUiState()
@@ -16,40 +17,39 @@ sealed class LoginUiState {
 
 class LoginViewModel(private val repository: AppRepository) : ViewModel() {
 
-    private val _email = MutableStateFlow("")
-    val email: StateFlow<String> = _email.asStateFlow()
+    // CAMBIO: Usamos username en lugar de email para coincidir con el backend
+    private val _username = MutableStateFlow("")
+    val username = _username.asStateFlow()
 
     private val _password = MutableStateFlow("")
-    val password: StateFlow<String> = _password.asStateFlow()
+    val password = _password.asStateFlow()
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
-    val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+    val uiState = _uiState.asStateFlow()
 
-    fun onEmailChange(newEmail: String) {
-        _email.value = newEmail
-    }
-
-    fun onPasswordChange(newPassword: String) {
-        _password.value = newPassword
-    }
+    fun onUsernameChange(value: String) { _username.value = value }
+    fun onPasswordChange(value: String) { _password.value = value }
 
     fun login() {
-        if (email.value.isBlank() || password.value.isBlank()) {
+        if (username.value.isBlank() || password.value.isBlank()) {
             _uiState.value = LoginUiState.Error("Completa todos los campos.")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
-            val passwordHash = PasswordHasher.hash(password.value)
 
-            val result = repository.loginUser(email.value, passwordHash)
+            // CAMBIO: Llamamos a la función de API del repositorio
+            // No hasheamos la contraseña aquí, se envía plana (HTTPS se encarga de la seguridad en producción)
+            val result = repository.loginUserApi(username.value.trim(), password.value)
+
             _uiState.value = result.fold(
                 onSuccess = { LoginUiState.Success },
                 onFailure = { LoginUiState.Error(it.message ?: "Error desconocido") }
             )
         }
     }
+
     fun consumeUiState() {
         _uiState.value = LoginUiState.Idle
     }

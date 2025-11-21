@@ -4,12 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.levelup_gamerpractica.data.local.AppRepository
-import com.example.levelup_gamerpractica.data.local.entities.User
-import com.example.levelup_gamerpractica.utils.PasswordHasher
+import com.example.levelup_gamerpractica.data.model.RegisterRequest // <-- IMPORTANTE: Importa el DTO
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.Period
+import java.time.format.DateTimeFormatter // <-- IMPORTANTE: Para formatear la fecha
+
 sealed class RegisterUiState {
     object Idle : RegisterUiState()
     object Loading : RegisterUiState()
@@ -37,6 +38,7 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
+    // Estados de error para la validación visual
     private val _usernameError = MutableStateFlow<String?>(null)
     val usernameError = _usernameError.asStateFlow()
     private val _emailError = MutableStateFlow<String?>(null)
@@ -57,21 +59,30 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
 
 
     fun register() {
+        // 1. Validar campos localmente antes de enviar
         if (!validateInputs()) {
             return
         }
 
         viewModelScope.launch {
             _uiState.value = RegisterUiState.Loading
-            val passwordHash = PasswordHasher.hash(password.value)
 
-            val newUser = User(
+            // 2. Formatear la fecha para el backend (YYYY-MM-DD)
+            // birthDate.value no es null aquí porque validateInputs ya lo revisó
+            val dateString = birthDate.value!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+            // 3. Crear el objeto de petición (DTO)
+            // ¡OJO! Enviamos la password SIN hashear. El backend la hasheará.
+            val request = RegisterRequest(
                 username = username.value.trim(),
-                email = email.value.trim().lowercase(),
-                passwordHash = passwordHash
+                email = email.value.trim(),
+                password = password.value,
+                dateOfBirth = dateString
             )
 
-            val result = repository.registerUser(newUser)
+            // 4. Llamar al repositorio (función conectada a la API)
+            val result = repository.registerUserApi(request)
+
             _uiState.value = result.fold(
                 onSuccess = { RegisterUiState.Success },
                 onFailure = { RegisterUiState.Error(it.message ?: "Error al registrar") }

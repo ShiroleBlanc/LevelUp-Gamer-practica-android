@@ -1,33 +1,41 @@
 package com.example.levelup_gamerpractica.data.local
 
-import android.content.Context 
+import android.content.Context
 import android.net.Uri
 import com.example.levelup_gamerpractica.data.local.dao.CartItemWithDetails
 import com.example.levelup_gamerpractica.data.local.entities.CartItem
 import com.example.levelup_gamerpractica.data.local.entities.Product
 import com.example.levelup_gamerpractica.data.local.entities.User
+import com.example.levelup_gamerpractica.data.model.LoginRequest
+import com.example.levelup_gamerpractica.data.model.RegisterRequest
+import com.example.levelup_gamerpractica.data.remote.ProductNetworkDto
+import com.example.levelup_gamerpractica.data.remote.RetrofitInstance
+import com.example.levelup_gamerpractica.utils.SessionManager
+import com.example.levelup_gamerpractica.utils.TokenManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.io.File 
-import java.io.FileOutputStream 
+import java.io.File
+import java.io.FileOutputStream
+import java.text.NumberFormat
+import java.util.Locale
 import java.util.UUID
-import com.example.levelup_gamerpractica.data.remote.RetrofitInstance
-import com.example.levelup_gamerpractica.data.remote.ProductNetworkDto
-import java.text.NumberFormat // Importar para formatear el precio
-import java.util.Locale // Importar para el formato de CLP
 
 class AppRepository(
     private val database: AppDatabase,
-    private val context: Context 
+    private val context: Context
 ) {
 
+    // --- INSTANCIAS ---
     private val apiService = RetrofitInstance.api
     private val productDao = database.productDao()
+    private val userDao = database.userDao()
+    private val sessionManager = SessionManager(context)
 
+    // --- ESTADO DE USUARIO ---
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: Flow<User?> = _currentUser.asStateFlow()
 
@@ -35,33 +43,65 @@ class AppRepository(
         user?.username
     }
 
-    // --- Operaciones de usuario ---
-    suspend fun registerUser(user: User): Result<Unit> = withContext(Dispatchers.IO) {
+    // ========================================================================
+    // AUTENTICACIÓN CON BACKEND (LOGIN Y REGISTRO)
+    // ========================================================================
+
+    /**
+     * Registro: Envía los datos al backend (Spring Boot).
+     */
+    suspend fun registerUserApi(request: RegisterRequest): Result<String> = withContext(Dispatchers.IO) {
         try {
-            if (database.userDao().getUserByEmail(user.email) != null) {
-                return@withContext Result.failure(Exception("El correo ya está registrado."))
+            val response = apiService.register(request)
+            if (response.isSuccessful) {
+                Result.success("Registro exitoso. Por favor inicia sesión.")
+            } else {
+                val errorMsg = response.errorBody()?.string() ?: "Error en el registro"
+                Result.failure(Exception(errorMsg))
             }
-            if (database.userDao().getUserByUsername(user.username) != null) {
-                return@withContext Result.failure(Exception("El nombre de usuario ya está en uso."))
-            }
-
-            database.userDao().insertUser(user)
-            Result.success(Unit)
-
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun loginUser(email: String, passwordHash: String): Result<User> = withContext(Dispatchers.IO) {
+    /**
+     * Login: Envía credenciales, recibe Token y lo guarda.
+     */
+    suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
-            val user = database.userDao().getUserByEmail(email)
-            if (user != null && user.passwordHash == passwordHash) {
+            val request = LoginRequest(username, password)
+            val response = apiService.login(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                val token = response.body()!!.token
+
+                // 1. Guardar token en Disco (para cuando cierres la app)
+                sessionManager.saveAuthToken(token)
+
+                // 2. Guardar token en Memoria (para usarlo YA en las siguientes peticiones)
+                TokenManager.setToken(token)
+
+                // 3. Crear usuario local temporal
+                // (En una app completa, aquí llamaríamos a 'apiService.getMyProfile()' para llenar los datos reales)
+                val user = User(
+                    id = 0, // ID temporal hasta que carguemos el perfil real
+                    username = username,
+                    email = "",
+                    userRole = "ROLE_USER",
+                    pointsBalance = 0,
+                    userLevel = 1
+                )
+
+                // Actualizar el estado de la UI
                 _currentUser.value = user
+
+                // Guardar usuario básico en Room (Caché)
+                userDao.insertUser(user)
+
                 Result.success(user)
             } else {
                 _currentUser.value = null
-                Result.failure(Exception("Correo o contraseña incorrectos."))
+                Result.failure(Exception("Credenciales incorrectas"))
             }
         } catch (e: Exception) {
             _currentUser.value = null
@@ -69,10 +109,20 @@ class AppRepository(
         }
     }
 
+    /**
+     * Logout: Limpia tokens y datos locales.
+     */
     suspend fun logoutUser() = withContext(Dispatchers.IO) {
-        _currentUser.value = null
-        clearCart()
+        sessionManager.logout()        // Borrar de SharedPreferences
+        TokenManager.setToken(null)    // Borrar de Memoria
+        _currentUser.value = null      // Limpiar estado UI
+        clearCart()                    // Vaciar carrito
+        userDao.deleteAllUsers()       // Limpiar caché de usuarios
     }
+
+    // ========================================================================
+    // GESTIÓN DE PERFIL (Lógica Local por ahora)
+    // ========================================================================
 
     private fun copyImageToInternalStorage(contentUri: Uri): String {
         val inputStream = context.contentResolver.openInputStream(contentUri)
@@ -88,22 +138,25 @@ class AppRepository(
         return file.absolutePath
     }
 
-
     suspend fun updateProfilePicture(contentUriString: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
 
             if (contentUriString == null) {
-                database.userDao().updateProfilePicture(user.id, null)
-                _currentUser.value = user.copy(profilePictureUri = null)
+                // Eliminar foto: Usamos el nombre correcto 'profilePictureUrl' en el DAO
+                userDao.updateProfilePicture(user.id, null)
+                _currentUser.value = user.copy(profilePictureUrl = null)
                 return@withContext Result.success(Unit)
             }
 
+            // Guardar nueva foto en almacenamiento interno del celular
             val permanentFilePath = copyImageToInternalStorage(Uri.parse(contentUriString))
 
-            database.userDao().updateProfilePicture(user.id, permanentFilePath)
+            // Actualizar en Room (asegúrate que tu UserDao use profilePictureUrl)
+            userDao.updateProfilePicture(user.id, permanentFilePath)
 
-            _currentUser.value = user.copy(profilePictureUri = permanentFilePath)
+            // Actualizar estado en UI
+            _currentUser.value = user.copy(profilePictureUrl = permanentFilePath)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -114,66 +167,44 @@ class AppRepository(
     suspend fun updateUserDetails(newUsername: String?, newEmail: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
-
-            // Usar los valores nuevos solo si no son nulos o vacíos, sino mantener los antiguos
             val finalUsername = newUsername?.takeIf { it.isNotBlank() } ?: user.username
             val finalEmail = newEmail?.takeIf { it.isNotBlank() } ?: user.email
 
-            if (finalEmail != user.email) {
-                val emailCheck = database.userDao().getUserByEmail(finalEmail)
-                if (emailCheck != null && emailCheck.id != user.id) {
-                    return@withContext Result.failure(Exception("El nuevo correo ya está en uso."))
-                }
-            }
-            if (finalUsername != user.username) {
-                val usernameCheck = database.userDao().getUserByUsername(finalUsername)
-                if (usernameCheck != null && usernameCheck.id != user.id) {
-                    return@withContext Result.failure(Exception("El nuevo nombre de usuario ya está en uso."))
-                }
-            }
+            // Actualizar en Room
+            userDao.updateUsername(user.id, finalUsername)
+            userDao.updateUserEmail(user.id, finalEmail)
 
-            val updatedUser = user.copy(username = finalUsername, email = finalEmail)
-            database.userDao().updateUsername(user.id, finalUsername)
-            database.userDao().updateUserEmail(user.id, finalEmail)
+            // Actualizar en UI
+            _currentUser.value = user.copy(username = finalUsername, email = finalEmail)
 
-            _currentUser.value = updatedUser
             Result.success(Unit)
-
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
+    // Esta función es solo local, la contraseña real se cambia en el backend
     suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
-
-            if (user.passwordHash != oldPasswordHash) {
-                return@withContext Result.failure(Exception("La contraseña actual es incorrecta."))
-            }
-
-            database.userDao().updatePassword(user.id, newPasswordHash)
-
-            _currentUser.value = user.copy(passwordHash = newPasswordHash)
-            Result.success(Unit)
-
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        Result.success(Unit)
     }
+
+
+    // ========================================================================
+    // PRODUCTOS (Desde el Backend)
+    // ========================================================================
 
     private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
         val formatClp = NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
             maximumFractionDigits = 0
         }
-        val formattedPrice = formatClp.format(dto.price) // Convierte 29990.0 a "$29.990 CLP"
+        val formattedPrice = formatClp.format(dto.price)
 
         return Product(
             id = dto.id.toInt(),
             name = dto.name,
             price = formattedPrice,
             category = dto.category,
-            image = dto.image, // Asume que 'imageUrl' del backend es solo el nombre (ej: "catan")
+            image = dto.image,
             description = dto.description,
             manufacturer = dto.manufacturer,
             distributor = dto.distributor
@@ -183,10 +214,14 @@ class AppRepository(
     suspend fun refreshProducts() {
         withContext(Dispatchers.IO) {
             try {
+                // 1. Obtener de la API
                 val productDtoList = apiService.getAllProducts()
 
+                // 2. Convertir a Entidades Locales
                 val productEntityList = productDtoList.map { mapDtoToEntity(it) }
 
+                // 3. Actualizar Caché (Room)
+                productDao.deleteAll() // Asegúrate de tener este método en tu ProductDao
                 productDao.insertAll(productEntityList)
 
                 println("AppRepository: Productos actualizados desde la API.")
@@ -197,12 +232,14 @@ class AppRepository(
         }
     }
 
-
     val allProducts: Flow<List<Product>> = productDao.getAllProducts()
     val allCategories: Flow<List<String>> = productDao.getAllCategories()
     fun getProductsByCategory(category: String): Flow<List<Product>> = productDao.getProductsByCategory(category)
 
 
+    // ========================================================================
+    // CARRITO (Local)
+    // ========================================================================
 
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
 

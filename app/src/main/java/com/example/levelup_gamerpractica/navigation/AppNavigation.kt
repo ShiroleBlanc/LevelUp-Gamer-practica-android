@@ -18,19 +18,26 @@ object Routes {
     const val REGISTER = "register"
     const val CATALOG = "catalog"
     const val CART = "cart"
-    const val PROFILE = "profile" 
+    const val PROFILE = "profile"
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    // 1. Añadimos el parámetro para recibir el destino inicial
+    // Por defecto es LOGIN, pero MainActivity puede mandar CATALOG si hay token.
+    startDestination: String = Routes.LOGIN
+) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Routes.CATALOG) {
+    // 2. Usamos 'startDestination' en el NavHost
+    NavHost(navController = navController, startDestination = startDestination) {
+
         composable(Routes.LOGIN) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 LoginScreen(
                     modifier = Modifier.padding(innerPadding),
                     onLoginSuccess = {
+                        // Al loguearse, vamos al catálogo y borramos el login del historial
                         navController.navigate(Routes.CATALOG) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }
@@ -39,6 +46,7 @@ fun AppNavigation() {
                 )
             }
         }
+
         composable(Routes.REGISTER) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 RegisterScreen(
@@ -52,6 +60,7 @@ fun AppNavigation() {
                 )
             }
         }
+
         composable(Routes.CATALOG) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 CatalogScreen(
@@ -59,6 +68,7 @@ fun AppNavigation() {
                 )
             }
         }
+
         composable(Routes.CART) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 CartScreen(
@@ -66,6 +76,7 @@ fun AppNavigation() {
                 )
             }
         }
+
         composable(Routes.PROFILE) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 ProfileScreen(

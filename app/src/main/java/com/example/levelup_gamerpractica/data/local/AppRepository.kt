@@ -48,7 +48,7 @@ class AppRepository(
     // ========================================================================
 
     /**
-     * Registro: Envía los datos al backend (Spring Boot).
+     * Registro: Envía los datos al backend.
      */
     suspend fun registerUserApi(request: RegisterRequest): Result<String> = withContext(Dispatchers.IO) {
         try {
@@ -65,40 +65,53 @@ class AppRepository(
     }
 
     /**
-     * Login: Envía credenciales, recibe Token y lo guarda.
+     * Login:
+     * 1. Envía credenciales.
+     * 2. Recibe y guarda Token.
+     * 3. Pide el perfil completo del usuario (con puntos y rol).
      */
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
+            // 1. Login para obtener Token
             val request = LoginRequest(username, password)
-            val response = apiService.login(request)
+            val loginResponse = apiService.login(request)
 
-            if (response.isSuccessful && response.body() != null) {
-                val token = response.body()!!.token
+            if (loginResponse.isSuccessful && loginResponse.body() != null) {
+                val token = loginResponse.body()!!.token
 
-                // 1. Guardar token en Disco (para cuando cierres la app)
+                // Guardar token
                 sessionManager.saveAuthToken(token)
-
-                // 2. Guardar token en Memoria (para usarlo YA en las siguientes peticiones)
                 TokenManager.setToken(token)
 
-                // 3. Crear usuario local temporal
-                // (En una app completa, aquí llamaríamos a 'apiService.getMyProfile()' para llenar los datos reales)
-                val user = User(
-                    id = 0, // ID temporal hasta que carguemos el perfil real
-                    username = username,
-                    email = "",
-                    userRole = "ROLE_USER",
-                    pointsBalance = 0,
-                    userLevel = 1
-                )
+                // 2. Obtener perfil real del usuario
+                val profileResponse = apiService.getUserProfile()
 
-                // Actualizar el estado de la UI
-                _currentUser.value = user
+                if (profileResponse.isSuccessful && profileResponse.body() != null) {
+                    val profile = profileResponse.body()!!
 
-                // Guardar usuario básico en Room (Caché)
-                userDao.insertUser(user)
+                    // Mapear respuesta del backend a entidad local User
+                    val user = User(
+                        id = profile.id,
+                        username = profile.username,
+                        email = profile.email,
+                        userRole = profile.userRole,
+                        pointsBalance = profile.pointsBalance,
+                        userLevel = profile.userLevel,
+                        profilePictureUrl = profile.profilePictureUrl
+                    )
 
-                Result.success(user)
+                    // Actualizar estado y caché local
+                    _currentUser.value = user
+                    userDao.insertUser(user)
+
+                    Result.success(user)
+                } else {
+                    // Si falla el perfil pero el login fue bueno, creamos un usuario temporal
+                    // para no bloquear el acceso, aunque no se verán los puntos.
+                    val basicUser = User(id = 0, username = username, email = "")
+                    _currentUser.value = basicUser
+                    Result.success(basicUser)
+                }
             } else {
                 _currentUser.value = null
                 Result.failure(Exception("Credenciales incorrectas"))
@@ -110,13 +123,44 @@ class AppRepository(
     }
 
     /**
+     * Cargar Perfil (Auto-Login):
+     * Se usa cuando abres la app y ya tienes un token guardado.
+     */
+    suspend fun loadUserProfile(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getUserProfile()
+            if (response.isSuccessful && response.body() != null) {
+                val profile = response.body()!!
+
+                val user = User(
+                    id = profile.id,
+                    username = profile.username,
+                    email = profile.email,
+                    userRole = profile.userRole,
+                    pointsBalance = profile.pointsBalance,
+                    userLevel = profile.userLevel,
+                    profilePictureUrl = profile.profilePictureUrl
+                )
+
+                _currentUser.value = user
+                userDao.insertUser(user)
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
      * Logout: Limpia tokens y datos locales.
      */
     suspend fun logoutUser() = withContext(Dispatchers.IO) {
-        sessionManager.logout()        // Borrar de SharedPreferences
-        TokenManager.setToken(null)    // Borrar de Memoria
+        sessionManager.logout()        // Borrar de disco
+        TokenManager.setToken(null)    // Borrar de memoria
         _currentUser.value = null      // Limpiar estado UI
-        clearCart()                    // Vaciar carrito
+        clearCart()                    // Vaciar carrito local
         userDao.deleteAllUsers()       // Limpiar caché de usuarios
     }
 
@@ -143,19 +187,16 @@ class AppRepository(
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
 
             if (contentUriString == null) {
-                // Eliminar foto: Usamos el nombre correcto 'profilePictureUrl' en el DAO
                 userDao.updateProfilePicture(user.id, null)
                 _currentUser.value = user.copy(profilePictureUrl = null)
                 return@withContext Result.success(Unit)
             }
 
-            // Guardar nueva foto en almacenamiento interno del celular
             val permanentFilePath = copyImageToInternalStorage(Uri.parse(contentUriString))
 
-            // Actualizar en Room (asegúrate que tu UserDao use profilePictureUrl)
+            // Nota: Esto solo actualiza la foto LOCAL en el celular.
+            // Para subirla al servidor, necesitarías implementar 'apiService.uploadPicture'
             userDao.updateProfilePicture(user.id, permanentFilePath)
-
-            // Actualizar estado en UI
             _currentUser.value = user.copy(profilePictureUrl = permanentFilePath)
 
             Result.success(Unit)
@@ -170,11 +211,9 @@ class AppRepository(
             val finalUsername = newUsername?.takeIf { it.isNotBlank() } ?: user.username
             val finalEmail = newEmail?.takeIf { it.isNotBlank() } ?: user.email
 
-            // Actualizar en Room
             userDao.updateUsername(user.id, finalUsername)
             userDao.updateUserEmail(user.id, finalEmail)
 
-            // Actualizar en UI
             _currentUser.value = user.copy(username = finalUsername, email = finalEmail)
 
             Result.success(Unit)
@@ -183,7 +222,6 @@ class AppRepository(
         }
     }
 
-    // Esta función es solo local, la contraseña real se cambia en el backend
     suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
         Result.success(Unit)
     }
@@ -214,14 +252,10 @@ class AppRepository(
     suspend fun refreshProducts() {
         withContext(Dispatchers.IO) {
             try {
-                // 1. Obtener de la API
                 val productDtoList = apiService.getAllProducts()
-
-                // 2. Convertir a Entidades Locales
                 val productEntityList = productDtoList.map { mapDtoToEntity(it) }
 
-                // 3. Actualizar Caché (Room)
-                productDao.deleteAll() // Asegúrate de tener este método en tu ProductDao
+                productDao.deleteAll()
                 productDao.insertAll(productEntityList)
 
                 println("AppRepository: Productos actualizados desde la API.")

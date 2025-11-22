@@ -42,6 +42,7 @@ android {
 
 dependencies {
     // Retrofit y Gson Converter
+    implementation("io.coil-kt:coil-compose:2.4.0") // O la versión más reciente
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.coil.compose)

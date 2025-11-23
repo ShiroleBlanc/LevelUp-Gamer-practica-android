@@ -11,6 +11,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.PUT // <-- IMPORTANTE
 import retrofit2.http.Part
 
 interface ApiService {
@@ -27,10 +28,15 @@ interface ApiService {
     @GET("api/profile/me")
     suspend fun getUserProfile(): Response<ProfileResponse>
 
-    // --- ¡NUEVO MÉTODO PARA SUBIR FOTO! ---
     @Multipart
     @POST("api/profile/picture")
     suspend fun uploadProfilePicture(
         @Part file: MultipartBody.Part
-    ): Response<Map<String, String>> // El backend devuelve {"profilePictureUrl": "..."}
+    ): Response<Map<String, String>>
+
+    // --- ¡NUEVO MÉTODO PARA ACTUALIZAR DATOS! ---
+    @PUT("api/profile/me")
+    suspend fun updateProfile(
+        @Body updates: Map<String, String>
+    ): Response<ProfileResponse>
 }

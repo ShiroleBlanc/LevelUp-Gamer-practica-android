@@ -51,48 +51,52 @@ fun MainAppScaffold(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val startDestinationId = navController.graph.startDestinationId
-
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(modifier = Modifier.height(16.dp))
-                // --- CABECERA DEL DRAWER (Opcional) ---
+
                 if (currentUser != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Text("Hola, ${currentUser?.username}", style = MaterialTheme.typography.titleLarge)
                     }
                     HorizontalDivider()
                 }
 
                 // --- ÍTEMS DEL MENÚ ---
+
+                // 1. CATÁLOGO (Inicio)
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Storefront, contentDescription = "Catálogo") },
                     label = { Text("Catálogo") },
                     selected = currentRoute == Routes.CATALOG,
                     onClick = {
+                        // Navegar al Catálogo y limpiar la pila hasta él
                         navController.navigate(Routes.CATALOG) {
-                            popUpTo(startDestinationId) { saveState = true }
+                            // Esto dice: "Vuelve atrás hasta encontrar la pantalla de Catálogo"
+                            // inclusive = false significa "No borres el Catálogo, quédate ahí"
+                            popUpTo(Routes.CATALOG) {
+                                inclusive = false
+                            }
                             launchSingleTop = true
-                            restoreState = true
                         }
                         scope.launch { drawerState.close() }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
+
+                // 2. CARRITO
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.ShoppingCart, contentDescription = "Carrito") },
                     label = { Text("Carrito") },
                     selected = currentRoute == Routes.CART,
                     onClick = {
                         navController.navigate(Routes.CART) {
-                            popUpTo(startDestinationId) { saveState = true }
+                            // Al ir al carrito, volvemos al Catálogo como base
+                            popUpTo(Routes.CATALOG) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -110,11 +114,7 @@ fun MainAppScaffold(
                         label = { Text("Iniciar Sesión") },
                         selected = currentRoute == Routes.LOGIN,
                         onClick = {
-                            navController.navigate(Routes.LOGIN) {
-                                popUpTo(startDestinationId) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                            navController.navigate(Routes.LOGIN)
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -124,11 +124,7 @@ fun MainAppScaffold(
                         label = { Text("Registrarme") },
                         selected = currentRoute == Routes.REGISTER,
                         onClick = {
-                            navController.navigate(Routes.REGISTER) {
-                                popUpTo(startDestinationId) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                            navController.navigate(Routes.REGISTER)
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -141,7 +137,9 @@ fun MainAppScaffold(
                         selected = currentRoute == Routes.PROFILE,
                         onClick = {
                             navController.navigate(Routes.PROFILE) {
-                                popUpTo(startDestinationId) { saveState = true }
+                                popUpTo(Routes.CATALOG) {
+                                    saveState = true
+                                }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -157,7 +155,7 @@ fun MainAppScaffold(
                         onClick = {
                             mainViewModel.logout()
                             scope.launch { drawerState.close() }
-                            // Al cerrar sesión, vamos al Login y limpiamos el historial
+                            // Ir al Login y borrar TODO el historial anterior
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -172,27 +170,18 @@ fun MainAppScaffold(
             topBar = {
                 TopAppBar(
                     title = {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Título centrado
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text(
                                 text = getTitleForRoute(currentRoute, currentUser?.username),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth(),
                                 maxLines = 1
                             )
-
-                            // Logo alineado a la izquierda (junto al botón menú)
-                            // Ajustado para que no se solape con el título si es largo
                             Box(modifier = Modifier.align(Alignment.CenterStart)) {
                                 Image(
                                     painter = painterResource(id = R.drawable.logo),
                                     contentDescription = "Logo",
-                                    modifier = Modifier
-                                        .height(32.dp) // Tamaño ajustado
-                                        .padding(start = 8.dp)
+                                    modifier = Modifier.height(32.dp).padding(start = 8.dp)
                                 )
                             }
                         }
@@ -203,7 +192,6 @@ fun MainAppScaffold(
                         }
                     },
                     actions = {
-                        // Si el usuario está logueado, mostramos su foto (o icono) en la derecha
                         if (currentUser != null) {
                             IconButton(
                                 onClick = { navController.navigate(Routes.PROFILE) },
@@ -215,7 +203,7 @@ fun MainAppScaffold(
                                         model = ImageRequest.Builder(LocalContext.current)
                                             .data(currentUser?.profilePictureUrl)
                                             .crossfade(true)
-                                            // Truco: forzar recarga si cambia la URL
+                                            // Truco: Añadir timestamp en el ViewModel o aquí para forzar recarga si cambia
                                             .build(),
                                         contentDescription = "Foto de perfil",
                                         modifier = Modifier
@@ -225,18 +213,12 @@ fun MainAppScaffold(
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    // Fallback si no tiene foto
-                                    Icon(
-                                        imageVector = Icons.Filled.AccountCircle,
-                                        contentDescription = "Perfil",
-                                        modifier = Modifier.size(32.dp)
-                                    )
+                                    Icon(Icons.Filled.AccountCircle, "Perfil", modifier = Modifier.size(32.dp))
                                 }
                             }
                         } else {
-                            // Si no está logueado, mostramos botón de login rápido
                             IconButton(onClick = { navController.navigate(Routes.LOGIN) }) {
-                                Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión")
+                                Icon(Icons.Filled.Login, "Login")
                             }
                         }
                     }
@@ -248,8 +230,6 @@ fun MainAppScaffold(
     }
 }
 
-
-// Función helper para obtener el título de la TopAppBar
 fun getTitleForRoute(route: String?, userName: String?): String {
     return when (route) {
         Routes.CATALOG -> "Catálogo"

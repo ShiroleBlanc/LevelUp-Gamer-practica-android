@@ -23,7 +23,7 @@ import java.io.FileOutputStream
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
-// --- IMPORTS NECESARIOS PARA SUBIR FOTOS ---
+// Imports para subida de archivos
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -72,7 +72,7 @@ class AppRepository(
      * Login:
      * 1. Envía credenciales.
      * 2. Recibe y guarda Token.
-     * 3. ¡IMPORTANTE! Pide el perfil completo del usuario inmediatamente.
+     * 3. Pide el perfil completo del usuario inmediatamente.
      */
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
@@ -189,8 +189,7 @@ class AppRepository(
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
 
             if (contentUriString == null) {
-                // Aquí deberías implementar un endpoint para borrar foto si quisieras
-                // Por ahora solo borramos local
+                // Aquí podrías implementar un endpoint para borrar foto
                 userDao.updateProfilePicture(user.id, null)
                 _currentUser.value = user.copy(profilePictureUrl = null)
                 return@withContext Result.success(Unit)
@@ -198,7 +197,6 @@ class AppRepository(
 
             // 1. Obtener el archivo real desde la URI
             val uri = Uri.parse(contentUriString)
-            // Copiamos a caché para poder subirlo
             val filePath = copyImageToInternalStorage(uri)
             val file = File(filePath)
 
@@ -235,32 +233,57 @@ class AppRepository(
     }
 
     suspend fun updateUserDetails(newUsername: String?, newEmail: String?): Result<Unit> = withContext(Dispatchers.IO) {
-        // Aquí podrías implementar la llamada a 'apiService.updateProfile'
-        // Por ahora mantenemos la lógica local para no romper nada,
-        // pero recuerda que esto no actualiza el servidor.
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
-            val finalUsername = newUsername?.takeIf { it.isNotBlank() } ?: user.username
-            val finalEmail = newEmail?.takeIf { it.isNotBlank() } ?: user.email
 
-            userDao.updateUsername(user.id, finalUsername)
-            userDao.updateUserEmail(user.id, finalEmail)
+            // 1. Preparamos el mapa de actualizaciones
+            val updates = mutableMapOf<String, String>()
 
-            _currentUser.value = user.copy(username = finalUsername, email = finalEmail)
+            if (!newUsername.isNullOrBlank() && newUsername != user.username) {
+                updates["username"] = newUsername
+            }
+            if (!newEmail.isNullOrBlank() && newEmail != user.email) {
+                updates["email"] = newEmail
+            }
 
-            Result.success(Unit)
+            if (updates.isEmpty()) {
+                return@withContext Result.success(Unit)
+            }
+
+            // 2. Enviamos al Backend (PUT)
+            val response = apiService.updateProfile(updates)
+
+            if (response.isSuccessful && response.body() != null) {
+                val updatedProfile = response.body()!!
+
+                // 3. Actualizamos localmente
+                val updatedUser = user.copy(
+                    username = updatedProfile.username,
+                    email = updatedProfile.email
+                )
+
+                userDao.updateUsername(user.id, updatedProfile.username)
+                userDao.updateUserEmail(user.id, updatedProfile.email)
+
+                _currentUser.value = updatedUser
+                Result.success(Unit)
+            } else {
+                val errorMsg = response.errorBody()?.string() ?: "Error al actualizar perfil"
+                Result.failure(Exception(errorMsg))
+            }
+
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
-        Result.success(Unit)
+        Result.success(Unit) // Pendiente implementar endpoint de cambio de contraseña
     }
 
 
     // ========================================================================
-    // PRODUCTOS Y CARRITO
+    // PRODUCTOS (Desde el Backend)
     // ========================================================================
 
     private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
@@ -301,6 +324,11 @@ class AppRepository(
     val allProducts: Flow<List<Product>> = productDao.getAllProducts()
     val allCategories: Flow<List<String>> = productDao.getAllCategories()
     fun getProductsByCategory(category: String): Flow<List<Product>> = productDao.getProductsByCategory(category)
+
+
+    // ========================================================================
+    // CARRITO (Local)
+    // ========================================================================
 
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
 

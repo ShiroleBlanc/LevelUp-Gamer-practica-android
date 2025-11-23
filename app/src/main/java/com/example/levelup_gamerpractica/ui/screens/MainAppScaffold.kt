@@ -1,6 +1,7 @@
 package com.example.levelup_gamerpractica.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -16,7 +17,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.rememberVectorPainter 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -25,7 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import coil.compose.AsyncImage 
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.levelup_gamerpractica.data.local.LevelUpGamerApplication
 import com.example.levelup_gamerpractica.navigation.Routes
 import com.example.levelup_gamerpractica.viewmodel.MainViewModel
@@ -55,6 +58,20 @@ fun MainAppScaffold(
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(modifier = Modifier.height(16.dp))
+                // --- CABECERA DEL DRAWER (Opcional) ---
+                if (currentUser != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text("Hola, ${currentUser?.username}", style = MaterialTheme.typography.titleLarge)
+                    }
+                    HorizontalDivider()
+                }
+
+                // --- ÍTEMS DEL MENÚ ---
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Storefront, contentDescription = "Catálogo") },
                     label = { Text("Catálogo") },
@@ -87,6 +104,7 @@ fun MainAppScaffold(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                 if (currentUser == null) {
+                    // --- MENÚ PARA NO LOGUEADOS ---
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión") },
                         label = { Text("Iniciar Sesión") },
@@ -116,6 +134,7 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 } else {
+                    // --- MENÚ PARA USUARIOS LOGUEADOS ---
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") },
                         label = { Text("Mi Perfil") },
@@ -138,6 +157,7 @@ fun MainAppScaffold(
                         onClick = {
                             mainViewModel.logout()
                             scope.launch { drawerState.close() }
+                            // Al cerrar sesión, vamos al Login y limpiamos el historial
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -148,57 +168,75 @@ fun MainAppScaffold(
             }
         }
     ) {
-        Scaffold(            topBar = {
-            TopAppBar(
-                title = {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = getTitleForRoute(currentRoute, currentUser?.username),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Título centrado
+                            Text(
+                                text = getTitleForRoute(currentRoute, currentUser?.username),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 1
+                            )
 
-                        // EL LOGO
-                        Image(
-                            painter = painterResource(id = R.drawable.logo),
-                            contentDescription = "Logo",
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .height(40.dp)
-                                .padding(end = 8.dp)
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
-                    }
-                },
+                            // Logo alineado a la izquierda (junto al botón menú)
+                            // Ajustado para que no se solape con el título si es largo
+                            Box(modifier = Modifier.align(Alignment.CenterStart)) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo),
+                                    contentDescription = "Logo",
+                                    modifier = Modifier
+                                        .height(32.dp) // Tamaño ajustado
+                                        .padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                        }
+                    },
                     actions = {
+                        // Si el usuario está logueado, mostramos su foto (o icono) en la derecha
                         if (currentUser != null) {
                             IconButton(
                                 onClick = { navController.navigate(Routes.PROFILE) },
                                 modifier = Modifier.padding(end = 8.dp)
                             ) {
-                                val placeholderPainter = rememberVectorPainter(
-                                    Icons.Filled.AccountCircle
-                                )
-                                AsyncImage(
-                                    model = currentUser?.profilePictureUrl,
-                                    contentDescription = "Foto de perfil",
-
-                                    placeholder = placeholderPainter,
-                                    error = placeholderPainter,
-                                    fallback = placeholderPainter,
-
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
+                                if (currentUser?.profilePictureUrl != null) {
+                                    // Usamos Coil para cargar la URL
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(currentUser?.profilePictureUrl)
+                                            .crossfade(true)
+                                            // Truco: forzar recarga si cambia la URL
+                                            .build(),
+                                        contentDescription = "Foto de perfil",
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    // Fallback si no tiene foto
+                                    Icon(
+                                        imageVector = Icons.Filled.AccountCircle,
+                                        contentDescription = "Perfil",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            // Si no está logueado, mostramos botón de login rápido
+                            IconButton(onClick = { navController.navigate(Routes.LOGIN) }) {
+                                Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión")
                             }
                         }
                     }
@@ -218,8 +256,7 @@ fun getTitleForRoute(route: String?, userName: String?): String {
         Routes.CART -> "Carrito"
         Routes.LOGIN -> "Iniciar Sesión"
         Routes.REGISTER -> "Registro"
-        Routes.PROFILE -> "Mi Perfil" 
+        Routes.PROFILE -> "Mi Perfil"
         else -> "LevelUp Gamer"
     }
 }
-

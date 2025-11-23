@@ -23,6 +23,10 @@ import java.io.FileOutputStream
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
+// --- IMPORTS NECESARIOS PARA SUBIR FOTOS ---
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 
 class AppRepository(
     private val database: AppDatabase,
@@ -68,7 +72,7 @@ class AppRepository(
      * Login:
      * 1. Envía credenciales.
      * 2. Recibe y guarda Token.
-     * 3. Pide el perfil completo del usuario (con puntos y rol).
+     * 3. ¡IMPORTANTE! Pide el perfil completo del usuario inmediatamente.
      */
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
@@ -83,13 +87,12 @@ class AppRepository(
                 sessionManager.saveAuthToken(token)
                 TokenManager.setToken(token)
 
-                // 2. Obtener perfil real del usuario
+                // 2. Obtener perfil REAL del usuario (con puntos, nivel, etc.)
                 val profileResponse = apiService.getUserProfile()
 
                 if (profileResponse.isSuccessful && profileResponse.body() != null) {
                     val profile = profileResponse.body()!!
 
-                    // Mapear respuesta del backend a entidad local User
                     val user = User(
                         id = profile.id,
                         username = profile.username,
@@ -106,8 +109,7 @@ class AppRepository(
 
                     Result.success(user)
                 } else {
-                    // Si falla el perfil pero el login fue bueno, creamos un usuario temporal
-                    // para no bloquear el acceso, aunque no se verán los puntos.
+                    // Fallback si falla la carga del perfil pero el login fue bueno
                     val basicUser = User(id = 0, username = username, email = "")
                     _currentUser.value = basicUser
                     Result.success(basicUser)
@@ -165,13 +167,13 @@ class AppRepository(
     }
 
     // ========================================================================
-    // GESTIÓN DE PERFIL (Lógica Local por ahora)
+    // GESTIÓN DE PERFIL (Con subida al servidor)
     // ========================================================================
 
     private fun copyImageToInternalStorage(contentUri: Uri): String {
         val inputStream = context.contentResolver.openInputStream(contentUri)
-        val fileName = "profile_${UUID.randomUUID()}.jpg"
-        val file = File(context.filesDir, fileName)
+        val fileName = "temp_profile_upload.jpg" // Nombre temporal
+        val file = File(context.cacheDir, fileName) // Usamos cacheDir para temporal
         val outputStream = FileOutputStream(file)
 
         inputStream.use { input ->
@@ -187,25 +189,55 @@ class AppRepository(
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
 
             if (contentUriString == null) {
+                // Aquí deberías implementar un endpoint para borrar foto si quisieras
+                // Por ahora solo borramos local
                 userDao.updateProfilePicture(user.id, null)
                 _currentUser.value = user.copy(profilePictureUrl = null)
                 return@withContext Result.success(Unit)
             }
 
-            val permanentFilePath = copyImageToInternalStorage(Uri.parse(contentUriString))
+            // 1. Obtener el archivo real desde la URI
+            val uri = Uri.parse(contentUriString)
+            // Copiamos a caché para poder subirlo
+            val filePath = copyImageToInternalStorage(uri)
+            val file = File(filePath)
 
-            // Nota: Esto solo actualiza la foto LOCAL en el celular.
-            // Para subirla al servidor, necesitarías implementar 'apiService.uploadPicture'
-            userDao.updateProfilePicture(user.id, permanentFilePath)
-            _currentUser.value = user.copy(profilePictureUrl = permanentFilePath)
+            // 2. Preparar la petición Multipart
+            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
 
-            Result.success(Unit)
+            // 3. ¡SUBIR AL SERVIDOR!
+            val response = apiService.uploadProfilePicture(body)
+
+            if (response.isSuccessful && response.body() != null) {
+                // 4. Obtener la nueva URL que nos da el servidor
+                val newUrl = response.body()!!["profilePictureUrl"]
+
+                if (newUrl != null) {
+                    // 5. Actualizar Base de Datos Local con la URL web
+                    userDao.updateProfilePicture(user.id, newUrl)
+                    _currentUser.value = user.copy(profilePictureUrl = newUrl)
+                }
+
+                // Borrar archivo temporal
+                if(file.exists()) file.delete()
+
+                Result.success(Unit)
+            } else {
+                val errorMsg = response.errorBody()?.string() ?: "Error al subir imagen"
+                Result.failure(Exception(errorMsg))
+            }
+
         } catch (e: Exception) {
+            e.printStackTrace()
             Result.failure(e)
         }
     }
 
     suspend fun updateUserDetails(newUsername: String?, newEmail: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        // Aquí podrías implementar la llamada a 'apiService.updateProfile'
+        // Por ahora mantenemos la lógica local para no romper nada,
+        // pero recuerda que esto no actualiza el servidor.
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
             val finalUsername = newUsername?.takeIf { it.isNotBlank() } ?: user.username
@@ -228,7 +260,7 @@ class AppRepository(
 
 
     // ========================================================================
-    // PRODUCTOS (Desde el Backend)
+    // PRODUCTOS Y CARRITO
     // ========================================================================
 
     private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
@@ -269,11 +301,6 @@ class AppRepository(
     val allProducts: Flow<List<Product>> = productDao.getAllProducts()
     val allCategories: Flow<List<String>> = productDao.getAllCategories()
     fun getProductsByCategory(category: String): Flow<List<Product>> = productDao.getProductsByCategory(category)
-
-
-    // ========================================================================
-    // CARRITO (Local)
-    // ========================================================================
 
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
 

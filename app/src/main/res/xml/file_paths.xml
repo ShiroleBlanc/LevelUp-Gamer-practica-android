@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Usa el cache-path para fotos temporales -->
-    <cache-path name="my_images" path="." />
+    <!-- Caché interna (context.cacheDir) -->
+    <cache-path name="my_cache_images" path="." />
+
+    <!-- Caché externa (context.externalCacheDir) - ¡CRÍTICO PARA LA CÁMARA! -->
+    <external-cache-path name="my_external_cache_images" path="." />
+
+    <!-- Archivos internos (context.filesDir) -->
+    <files-path name="my_images" path="." />
+
+    <!-- Archivos externos (context.getExternalFilesDir) -->
+    <external-files-path name="my_external_images" path="." />
 </paths>

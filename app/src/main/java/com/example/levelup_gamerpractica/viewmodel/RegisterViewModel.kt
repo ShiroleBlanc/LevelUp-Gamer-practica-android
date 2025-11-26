@@ -8,6 +8,7 @@ import com.example.levelup_gamerpractica.data.model.RegisterRequest
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.Period // <--- IMPORTANTE: Necesario para calcular la edad
 import java.time.format.DateTimeFormatter
 
 sealed class RegisterUiState {
@@ -67,72 +68,83 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = RegisterUiState.Loading
 
-            // 1. Formatear la fecha a String "YYYY-MM-DD"
-            val dateString = birthDate.value!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            try {
+                // 1. Formatear la fecha a String "YYYY-MM-DD"
+                // Usamos !! porque validateInputs ya aseguró que birthDate no es null
+                val dateString = birthDate.value!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-            // 2. Crear el objeto DTO
-            // ¡IMPORTANTE! Enviamos la contraseña PLANA.
-            // NO usamos PasswordHasher aquí. El backend se encarga de la seguridad.
-            val request = RegisterRequest(
-                username = username.value.trim(),
-                email = email.value.trim(),
-                password = password.value, // Sin hashear
-                dateOfBirth = dateString
-            )
+                // 2. Crear el objeto DTO
+                val request = RegisterRequest(
+                    username = username.value.trim(),
+                    email = email.value.trim(),
+                    password = password.value,
+                    dateOfBirth = dateString
+                )
 
-            // 3. Llamar al repositorio
-            val result = repository.registerUserApi(request)
+                // 3. Llamar al repositorio
+                val result = repository.registerUserApi(request)
 
-            // 4. Manejar la respuesta
-            _uiState.value = result.fold(
-                onSuccess = { RegisterUiState.Success },
-                onFailure = { error ->
-                    // Si es un error de red o del backend, lo mostramos
-                    RegisterUiState.Error(error.message ?: "Error desconocido al registrarse")
-                }
-            )
+                // 4. Manejar la respuesta
+                _uiState.value = result.fold(
+                    onSuccess = { RegisterUiState.Success },
+                    onFailure = { error ->
+                        RegisterUiState.Error(error.message ?: "Error desconocido al registrarse")
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = RegisterUiState.Error(e.message ?: "Error inesperado")
+            }
         }
     }
 
     private fun validateInputs(): Boolean {
         var isValid = true
 
-        // Reiniciar errores
+        // Reiniciar errores visuales antes de validar
         _usernameError.value = null
         _emailError.value = null
         _passwordError.value = null
         _confirmPasswordError.value = null
         _birthDateError.value = null
 
-        // Validar Username
+        // 1. Validar Username
         if (username.value.isBlank() || username.value.length < 4) {
             _usernameError.value = "Mínimo 4 caracteres."
             isValid = false
         }
 
-        // Validar Email (Regex simple y seguro)
+        // 2. Validar Email
         val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$".toRegex()
         if (!email.value.matches(emailRegex)) {
             _emailError.value = "Correo inválido."
             isValid = false
         }
 
-        // Validar Password
+        // 3. Validar Password
         if (password.value.length < 6) {
             _passwordError.value = "Mínimo 6 caracteres."
             isValid = false
         }
 
-        // Validar Confirm Password
+        // 4. Validar Confirm Password
         if (password.value != confirmPassword.value) {
             _confirmPasswordError.value = "Las contraseñas no coinciden."
             isValid = false
         }
 
-        // Validar Fecha
+        // 5. Validar Fecha y Edad (AQUÍ ESTÁ EL CAMBIO PRINCIPAL)
         if (birthDate.value == null) {
             _birthDateError.value = "Selecciona tu fecha de nacimiento."
             isValid = false
+        } else {
+            // Calculamos la edad usando Period
+            val today = LocalDate.now()
+            val age = Period.between(birthDate.value, today).years
+
+            if (age < 18) {
+                _birthDateError.value = "Debes ser mayor de 18 años."
+                isValid = false
+            }
         }
 
         return isValid

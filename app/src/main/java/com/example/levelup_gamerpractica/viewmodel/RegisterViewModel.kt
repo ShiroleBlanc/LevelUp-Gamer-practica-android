@@ -4,12 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.levelup_gamerpractica.data.local.AppRepository
-import com.example.levelup_gamerpractica.data.model.RegisterRequest // <-- IMPORTANTE: Importa el DTO
+import com.example.levelup_gamerpractica.data.model.RegisterRequest
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.Period
-import java.time.format.DateTimeFormatter // <-- IMPORTANTE: Para formatear la fecha
+import java.time.format.DateTimeFormatter
 
 sealed class RegisterUiState {
     object Idle : RegisterUiState()
@@ -20,6 +19,7 @@ sealed class RegisterUiState {
 
 class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
 
+    // --- ESTADOS DE ENTRADA ---
     private val _username = MutableStateFlow("")
     val username = _username.asStateFlow()
 
@@ -35,10 +35,11 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     private val _birthDate = MutableStateFlow<LocalDate?>(null)
     val birthDate = _birthDate.asStateFlow()
 
+    // --- ESTADOS DE UI ---
     private val _uiState = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
-    // Estados de error para la validación visual
+    // --- ESTADOS DE ERROR ---
     private val _usernameError = MutableStateFlow<String?>(null)
     val usernameError = _usernameError.asStateFlow()
     private val _emailError = MutableStateFlow<String?>(null)
@@ -50,16 +51,15 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
     private val _birthDateError = MutableStateFlow<String?>(null)
     val birthDateError = _birthDateError.asStateFlow()
 
-
+    // --- SETTERS ---
     fun onUsernameChange(value: String) { _username.value = value; _usernameError.value = null }
     fun onEmailChange(value: String) { _email.value = value; _emailError.value = null }
     fun onPasswordChange(value: String) { _password.value = value; _passwordError.value = null }
     fun onConfirmPasswordChange(value: String) { _confirmPassword.value = value; _confirmPasswordError.value = null }
     fun onBirthDateChange(date: LocalDate?) { _birthDate.value = date; _birthDateError.value = null }
 
-
+    // --- LÓGICA DE REGISTRO ---
     fun register() {
-        // 1. Validar campos localmente antes de enviar
         if (!validateInputs()) {
             return
         }
@@ -67,79 +67,72 @@ class RegisterViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = RegisterUiState.Loading
 
-            // 2. Formatear la fecha para el backend (YYYY-MM-DD)
-            // birthDate.value no es null aquí porque validateInputs ya lo revisó
+            // 1. Formatear la fecha a String "YYYY-MM-DD"
             val dateString = birthDate.value!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-            // 3. Crear el objeto de petición (DTO)
-            // ¡OJO! Enviamos la password SIN hashear. El backend la hasheará.
+            // 2. Crear el objeto DTO
+            // ¡IMPORTANTE! Enviamos la contraseña PLANA.
+            // NO usamos PasswordHasher aquí. El backend se encarga de la seguridad.
             val request = RegisterRequest(
                 username = username.value.trim(),
                 email = email.value.trim(),
-                password = password.value,
+                password = password.value, // Sin hashear
                 dateOfBirth = dateString
             )
 
-            // 4. Llamar al repositorio (función conectada a la API)
+            // 3. Llamar al repositorio
             val result = repository.registerUserApi(request)
 
+            // 4. Manejar la respuesta
             _uiState.value = result.fold(
                 onSuccess = { RegisterUiState.Success },
-                onFailure = { RegisterUiState.Error(it.message ?: "Error al registrar") }
+                onFailure = { error ->
+                    // Si es un error de red o del backend, lo mostramos
+                    RegisterUiState.Error(error.message ?: "Error desconocido al registrarse")
+                }
             )
         }
     }
 
     private fun validateInputs(): Boolean {
         var isValid = true
-        // Limpia errores previos
+
+        // Reiniciar errores
         _usernameError.value = null
         _emailError.value = null
         _passwordError.value = null
         _confirmPasswordError.value = null
         _birthDateError.value = null
 
-        // Username
-        if (username.value.trim().length < 4) {
+        // Validar Username
+        if (username.value.isBlank() || username.value.length < 4) {
             _usernameError.value = "Mínimo 4 caracteres."
-            isValid = false
-        } else if (username.value.trim().length > 12) {
-            _usernameError.value = "Máximo 12 caracteres."
             isValid = false
         }
 
-        // Email
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.value.trim()).matches()) {
+        // Validar Email (Regex simple y seguro)
+        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$".toRegex()
+        if (!email.value.matches(emailRegex)) {
             _emailError.value = "Correo inválido."
             isValid = false
         }
 
-        // Password
+        // Validar Password
         if (password.value.length < 6) {
             _passwordError.value = "Mínimo 6 caracteres."
             isValid = false
-        } else if (password.value.length > 12) {
-            _passwordError.value = "Máximo 12 caracteres."
-            isValid = false
         }
 
-        // Confirm Password
+        // Validar Confirm Password
         if (password.value != confirmPassword.value) {
             _confirmPasswordError.value = "Las contraseñas no coinciden."
             isValid = false
         }
 
-        // Birth Date (Mayor de 18)
-        val dob = birthDate.value
-        if (dob == null) {
+        // Validar Fecha
+        if (birthDate.value == null) {
             _birthDateError.value = "Selecciona tu fecha de nacimiento."
             isValid = false
-        } else {
-            val age = Period.between(dob, LocalDate.now()).years
-            if (age < 18) {
-                _birthDateError.value = "Debes ser mayor de 18 años."
-                isValid = false
-            }
         }
 
         return isValid

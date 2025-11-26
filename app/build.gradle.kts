@@ -41,6 +41,12 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.8") // Para Mockear
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3") // Para Corrutinas
+
+    // Opcional: Para testear LiveData/StateFlow más fácil (si usas reglas de arquitectura)
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
     // Retrofit y Gson Converter
     implementation("io.coil-kt:coil-compose:2.4.0") // O la versión más reciente
     implementation(libs.retrofit)

@@ -39,10 +39,19 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 val success = repository.loadUserProfile()
                 if (success) {
-                    Log.d("DEBUG_SESION", "Perfil de usuario recargado correctamente")
+                    Log.d("DEBUG_SESION", "Perfil cargado. Token válido.")
                 } else {
-                    Log.d("DEBUG_SESION", "Error al recargar perfil (Token expirado?)")
-                    // Opcional: Si falla (ej. token viejo), podrías forzar logout aquí
+
+                    Log.e("DEBUG_SESION", "Token expirado o inválido. Cerrando sesión forzosa.")
+
+
+                    sessionManager.logout()       // Borra de disco
+                    TokenManager.setToken(null)   // Borra de memoria
+
+
+                    val intent = intent
+                    finish()
+                    startActivity(intent)
                 }
             }
             // -----------------------------

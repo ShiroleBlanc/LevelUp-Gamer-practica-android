@@ -47,22 +47,8 @@ class AppRepository(
     }
 
     // ========================================================================
-    // AUTENTICACIÓN CON BACKEND (LOGIN Y REGISTRO)
+    // AUTENTICACIÓN
     // ========================================================================
-
-    suspend fun registerUserApi(request: RegisterRequest): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.register(request)
-            if (response.isSuccessful) {
-                Result.success("Registro exitoso. Por favor inicia sesión.")
-            } else {
-                val errorMsg = response.errorBody()?.string() ?: "Error en el registro"
-                Result.failure(Exception(errorMsg))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
@@ -93,7 +79,7 @@ class AppRepository(
                     _currentUser.value = user
                     userDao.insertUser(user)
 
-                    // --- NUEVO: Sincronizar carrito al loguear ---
+                    // Sincronizamos carrito DESPUÉS de guardar usuario
                     syncCartFromBackend()
 
                     Result.success(user)
@@ -112,11 +98,23 @@ class AppRepository(
         }
     }
 
+    suspend fun registerUserApi(request: RegisterRequest): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.register(request)
+            if (response.isSuccessful) {
+                Result.success("Registro exitoso.")
+            } else {
+                val errorMsg = response.errorBody()?.string() ?: "Error registro"
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun loadUserProfile(): Boolean = withContext(Dispatchers.IO) {
         try {
             if (!sessionManager.isLoggedIn()) return@withContext false
-
-            // Asegurar que el TokenManager tenga el token en memoria
             if (TokenManager.getToken() == null) {
                 sessionManager.fetchAuthToken()?.let { TokenManager.setToken(it) }
             }
@@ -124,7 +122,6 @@ class AppRepository(
             val response = apiService.getUserProfile()
             if (response.isSuccessful && response.body() != null) {
                 val profile = response.body()!!
-
                 val user = User(
                     id = profile.id,
                     username = profile.username,
@@ -134,11 +131,9 @@ class AppRepository(
                     userLevel = profile.userLevel,
                     profilePictureUrl = profile.profilePictureUrl
                 )
-
                 _currentUser.value = user
                 userDao.insertUser(user)
 
-                // --- NUEVO: Si recargamos perfil, también aseguramos el carrito ---
                 syncCartFromBackend()
 
                 true
@@ -154,30 +149,201 @@ class AppRepository(
         sessionManager.logout()
         TokenManager.setToken(null)
         _currentUser.value = null
-
-        // --- IMPORTANTE: Limpiar base de datos local al salir ---
         cartDao.clearCart()
         userDao.deleteAllUsers()
     }
 
     // ========================================================================
-    // GESTIÓN DE PERFIL (Mantenemos tu código original)
+    // PRODUCTOS
     // ========================================================================
 
-    private fun copyImageToInternalStorage(contentUri: Uri): String {
-        val inputStream = context.contentResolver.openInputStream(contentUri)
-        val fileName = "temp_profile_upload.jpg"
-        val file = File(context.cacheDir, fileName)
-        val outputStream = FileOutputStream(file)
-
-        inputStream.use { input ->
-            outputStream.use { output ->
-                input?.copyTo(output)
-            }
-        }
-        return file.absolutePath
+    private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
+        return Product(
+            id = dto.id,
+            name = dto.name,
+            price = dto.price,
+            category = dto.category,
+            imageUrl = dto.imageUrl,
+            description = dto.description,
+            manufacturer = dto.manufacturer,
+            distributor = dto.distributor
+        )
     }
 
+    suspend fun refreshProducts() {
+        withContext(Dispatchers.IO) {
+            try {
+                val list = apiService.getAllProducts()
+                val entities = list.map { mapDtoToEntity(it) }
+
+                // --- CORRECCIÓN DEFINITIVA ---
+                // Usamos safeUpsertAll. Esto actualiza precios/nombres
+                // SIN BORRAR la fila, por lo que el carrito NO se pierde.
+                // NO usar productDao.deleteAll() aquí.
+
+                productDao.safeUpsertAll(entities)
+
+                println("AppRepository: Productos actualizados (Safe Upsert).")
+            } catch (e: Exception) {
+                println("AppRepository: Error al refrescar productos: ${e.message}")
+            }
+        }
+    }
+
+    val allProducts = productDao.getAllProducts()
+    val allCategories = productDao.getAllCategories()
+    fun getProductsByCategory(cat: String) = productDao.getProductsByCategory(cat)
+
+
+    // ========================================================================
+    // CARRITO
+    // ========================================================================
+
+    val cartItems: Flow<List<CartItemWithDetails>> = cartDao.getCartItemsWithDetails()
+
+    private suspend fun syncCartFromBackend() {
+        try {
+            val response = apiService.getMyCart()
+
+            if (response.isSuccessful && response.body() != null) {
+                val backendCart = response.body()!!
+
+                // Limpiamos solo el carrito local para evitar duplicados viejos
+                cartDao.clearCart()
+
+                backendCart.items.forEach { itemDto ->
+                    val productEntity = mapDtoToEntity(itemDto.product)
+
+                    // --- CORRECCIÓN DEFINITIVA ---
+                    // Aseguramos que el producto exista o se actualice SIN BORRARLO
+                    // Esto evita el error de llave foránea al insertar el CartItem
+                    productDao.safeUpsertProduct(productEntity)
+
+                    cartDao.upsertCartItem(
+                        CartItem(
+                            productId = itemDto.product.id,
+                            quantity = itemDto.quantity
+                        )
+                    )
+                }
+                Log.d("AppRepository", "Carrito sincronizado: ${backendCart.items.size} items")
+            }
+        } catch (e: Exception) {
+            Log.e("AppRepository", "Excepción sincronizando carrito: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun addToCart(productId: Long) = withContext(Dispatchers.IO) {
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val request = CartItemRequest(productId = productId.toInt(), quantity = 1)
+                val response = apiService.addItemToCart(request)
+                if (response.isSuccessful) {
+                    val existing = cartDao.getCartItem(productId)
+                    val newQty = (existing?.quantity ?: 0) + 1
+                    cartDao.upsertCartItem(CartItem(productId, newQty))
+                }
+            } catch (e: Exception) {
+                Log.e("Cart", "Error al añadir al backend: ${e.message}")
+            }
+        } else {
+            val existing = cartDao.getCartItem(productId)
+            val newQty = (existing?.quantity ?: 0) + 1
+            cartDao.upsertCartItem(CartItem(productId, newQty))
+        }
+    }
+
+    suspend fun increaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
+        val currentItem = cartDao.getCartItem(productId) ?: return@withContext
+        val newQty = currentItem.quantity + 1
+
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val body = mapOf("quantity" to newQty)
+                val response = apiService.updateCartItem(productId.toInt(), body)
+                if (response.isSuccessful) {
+                    cartDao.updateQuantity(productId, newQty)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            cartDao.updateQuantity(productId, newQty)
+        }
+    }
+
+    suspend fun decreaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
+        val currentItem = cartDao.getCartItem(productId) ?: return@withContext
+        val newQty = currentItem.quantity - 1
+
+        if (newQty > 0) {
+            if (sessionManager.isLoggedIn()) {
+                try {
+                    val body = mapOf("quantity" to newQty)
+                    val response = apiService.updateCartItem(productId.toInt(), body)
+                    if (response.isSuccessful) cartDao.updateQuantity(productId, newQty)
+                } catch (e: Exception) { e.printStackTrace() }
+            } else {
+                cartDao.updateQuantity(productId, newQty)
+            }
+        } else {
+            removeFromCart(productId)
+        }
+    }
+
+    suspend fun removeFromCart(productId: Long) = withContext(Dispatchers.IO) {
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val response = apiService.removeCartItem(productId.toInt())
+                if (response.isSuccessful) {
+                    cartDao.deleteCartItem(productId)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            cartDao.deleteCartItem(productId)
+        }
+    }
+
+    suspend fun clearCart() = withContext(Dispatchers.IO) {
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val response = apiService.clearCartApi()
+                if (response.isSuccessful) {
+                    cartDao.clearCart()
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            cartDao.clearCart()
+        }
+    }
+
+    suspend fun checkout(): Result<String> = withContext(Dispatchers.IO) {
+        if (!sessionManager.isLoggedIn()) {
+            return@withContext Result.failure(Exception("Debes iniciar sesión para comprar."))
+        }
+
+        try {
+            val response = apiService.checkout()
+            if (response.isSuccessful && response.body() != null) {
+                cartDao.clearCart()
+                loadUserProfile()
+                Result.success("Compra realizada con éxito. Orden #${response.body()!!.id}")
+            } else {
+                val error = response.errorBody()?.string() ?: "Error en el pago"
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // --- Helpers de Perfil ---
+    private fun copyImageToInternalStorage(contentUri: Uri): String {
+        val inputStream = context.contentResolver.openInputStream(contentUri)
+        val file = File(context.cacheDir, "temp_profile.jpg")
+        val outputStream = FileOutputStream(file)
+        inputStream.use { input -> outputStream.use { output -> input?.copyTo(output) } }
+        return file.absolutePath
+    }
     suspend fun updateProfilePicture(contentUriString: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
@@ -255,198 +421,5 @@ class AppRepository(
             Result.failure(e)
         }
     }
-
-    suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
-        // Implementación pendiente en backend según lo conversado, placeholder:
-        Result.success(Unit)
-    }
-
-    // ========================================================================
-    // PRODUCTOS
-    // ========================================================================
-
-    private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
-        return Product(
-            id = dto.id,
-            name = dto.name,
-            price = dto.price,
-            category = dto.category,
-            imageUrl = dto.imageUrl,
-            description = dto.description,
-            manufacturer = dto.manufacturer,
-            distributor = dto.distributor
-        )
-    }
-
-    suspend fun refreshProducts() {
-        withContext(Dispatchers.IO) {
-            try {
-                val productDtoList = apiService.getAllProducts()
-                val productEntityList = productDtoList.map { mapDtoToEntity(it) }
-
-                productDao.deleteAll()
-                productDao.insertAll(productEntityList)
-                println("AppRepository: Productos actualizados desde la API.")
-            } catch (e: Exception) {
-                println("AppRepository: Error al refrescar productos: ${e.message}")
-            }
-        }
-    }
-
-    val allProducts: Flow<List<Product>> = productDao.getAllProducts()
-    val allCategories: Flow<List<String>> = productDao.getAllCategories()
-    fun getProductsByCategory(category: String): Flow<List<Product>> = productDao.getProductsByCategory(category)
-
-
-    // ========================================================================
-    // CARRITO (LÓGICA HÍBRIDA SINCRONIZADA)
-    // ========================================================================
-
-    val cartItems: Flow<List<CartItemWithDetails>> = cartDao.getCartItemsWithDetails()
-
-    /**
-     * Descarga el carrito del servidor y reemplaza el local.
-     */
-    private suspend fun syncCartFromBackend() {
-        try {
-            val response = apiService.getMyCart()
-            if (response.isSuccessful && response.body() != null) {
-                val backendCart = response.body()!!
-
-                // 1. Limpiamos carrito local para evitar duplicados viejos
-                cartDao.clearCart()
-
-                // 2. Insertamos los items del backend en Room
-                backendCart.items.forEach { itemDto ->
-                    cartDao.upsertCartItem(
-                        CartItem(
-                            productId = itemDto.product.id,
-                            quantity = itemDto.quantity
-                        )
-                    )
-                }
-                Log.d("AppRepository", "Carrito sincronizado: ${backendCart.items.size} items")
-            }
-        } catch (e: Exception) {
-            Log.e("AppRepository", "Error sincronizando carrito: ${e.message}")
-        }
-    }
-
-    suspend fun addToCart(productId: Long) = withContext(Dispatchers.IO) {
-        if (sessionManager.isLoggedIn()) {
-            // MODO ONLINE: Primero API, luego Local
-            try {
-                // El backend espera int, pasamos productId.toInt()
-                val request = CartItemRequest(productId = productId.toInt(), quantity = 1)
-                val response = apiService.addItemToCart(request)
-
-                if (response.isSuccessful) {
-                    // Si el backend dice OK, actualizamos localmente
-                    val existing = cartDao.getCartItem(productId)
-                    val newQty = (existing?.quantity ?: 0) + 1
-                    cartDao.upsertCartItem(CartItem(productId, newQty))
-                }
-            } catch (e: Exception) {
-                Log.e("Cart", "Error al añadir al backend: ${e.message}")
-            }
-        } else {
-            // MODO OFFLINE: Solo Local
-            val existing = cartDao.getCartItem(productId)
-            val newQty = (existing?.quantity ?: 0) + 1
-            cartDao.upsertCartItem(CartItem(productId, newQty))
-        }
-    }
-
-    suspend fun increaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
-        val currentItem = cartDao.getCartItem(productId) ?: return@withContext
-        val newQty = currentItem.quantity + 1
-
-        if (sessionManager.isLoggedIn()) {
-            try {
-                val body = mapOf("quantity" to newQty)
-                val response = apiService.updateCartItem(productId.toInt(), body)
-                if (response.isSuccessful) {
-                    cartDao.updateQuantity(productId, newQty)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        } else {
-            cartDao.updateQuantity(productId, newQty)
-        }
-    }
-
-    suspend fun decreaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
-        val currentItem = cartDao.getCartItem(productId) ?: return@withContext
-        val newQty = currentItem.quantity - 1
-
-        if (newQty > 0) {
-            if (sessionManager.isLoggedIn()) {
-                try {
-                    val body = mapOf("quantity" to newQty)
-                    val response = apiService.updateCartItem(productId.toInt(), body)
-                    if (response.isSuccessful) cartDao.updateQuantity(productId, newQty)
-                } catch (e: Exception) { e.printStackTrace() }
-            } else {
-                cartDao.updateQuantity(productId, newQty)
-            }
-        } else {
-            // Si baja a 0, eliminar
-            removeFromCart(productId)
-        }
-    }
-
-    suspend fun removeFromCart(productId: Long) = withContext(Dispatchers.IO) {
-        if (sessionManager.isLoggedIn()) {
-            try {
-                val response = apiService.removeCartItem(productId.toInt())
-                if (response.isSuccessful) {
-                    cartDao.deleteCartItem(productId)
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            cartDao.deleteCartItem(productId)
-        }
-    }
-
-    suspend fun clearCart() = withContext(Dispatchers.IO) {
-        if (sessionManager.isLoggedIn()) {
-            try {
-                val response = apiService.clearCartApi()
-                if (response.isSuccessful) {
-                    cartDao.clearCart()
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            cartDao.clearCart()
-        }
-    }
-
-    // ========================================================================
-    // CHECKOUT / FINALIZAR COMPRA
-    // ========================================================================
-
-    suspend fun checkout(): Result<String> = withContext(Dispatchers.IO) {
-        if (!sessionManager.isLoggedIn()) {
-            return@withContext Result.failure(Exception("Debes iniciar sesión para comprar."))
-        }
-
-        try {
-            val response = apiService.checkout()
-            if (response.isSuccessful && response.body() != null) {
-                // Compra exitosa en backend -> Limpiamos carrito local
-                cartDao.clearCart()
-
-                // Recargamos el perfil para que se actualicen los puntos y nivel
-                loadUserProfile()
-
-                Result.success("Compra realizada con éxito. Orden #${response.body()!!.id}")
-            } else {
-                val error = response.errorBody()?.string() ?: "Error en el pago"
-                Result.failure(Exception(error))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+    suspend fun updateUserPassword(o: String, n: String): Result<Unit> = Result.success(Unit)
 }

@@ -23,13 +23,13 @@ object Routes {
 
 @Composable
 fun AppNavigation(
-    // 1. Añadimos el parámetro para recibir el destino inicial
-    // Por defecto es LOGIN, pero MainActivity puede mandar CATALOG si hay token.
-    startDestination: String = Routes.LOGIN
+    // CAMBIO IMPORTANTE:
+    // Por defecto la app iniciará SIEMPRE en el Catálogo.
+    // El usuario podrá navegar libremente y solo se le pedirá Login si intenta pagar o entrar al perfil.
+    startDestination: String = Routes.CATALOG
 ) {
     val navController = rememberNavController()
 
-    // 2. Usamos 'startDestination' en el NavHost
     NavHost(navController = navController, startDestination = startDestination) {
 
         composable(Routes.LOGIN) {
@@ -37,9 +37,11 @@ fun AppNavigation(
                 LoginScreen(
                     modifier = Modifier.padding(innerPadding),
                     onLoginSuccess = {
-                        // Al loguearse, vamos al catálogo y borramos el login del historial
+                        // Al loguearse exitosamente, volvemos al catálogo.
+                        // Usamos popUpTo(0) para limpiar TODA la pila anterior y dejar el Catálogo como única pantalla.
+                        // Esto evita que al dar "atrás" volvamos al Login.
                         navController.navigate(Routes.CATALOG) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
+                            popUpTo(0) { inclusive = true }
                         }
                     },
                     onNavigateToRegister = { navController.navigate(Routes.REGISTER) }
@@ -80,7 +82,11 @@ fun AppNavigation(
         composable(Routes.PROFILE) {
             MainAppScaffold(navController = navController) { innerPadding ->
                 ProfileScreen(
-                    modifier = Modifier.padding(innerPadding)
+                    modifier = Modifier.padding(innerPadding),
+                    onLogout = {
+                        // Al cerrar sesión, el MainAppScaffold ya tiene lógica,
+                        // pero aquí podrías manejar acciones extra si fuera necesario.
+                    }
                 )
             }
         }

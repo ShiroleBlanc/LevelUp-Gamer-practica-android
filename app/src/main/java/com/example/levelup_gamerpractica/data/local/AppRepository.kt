@@ -300,7 +300,7 @@ class AppRepository(
             if (response.isSuccessful && response.body() != null) {
                 cartDao.clearCart()
                 loadUserProfile()
-                Result.success("Compra realizada con éxito. Orden #${response.body()!!.id}")
+                Result.success("Compra realizada con éxito.")
             } else {
                 val error = response.errorBody()?.string() ?: "Error en el pago"
                 Result.failure(Exception(error))

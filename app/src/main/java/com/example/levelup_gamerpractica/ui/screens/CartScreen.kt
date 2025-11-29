@@ -35,22 +35,46 @@ fun CartScreen(
     val context = LocalContext.current
     var showEmptyCartDialog by remember { mutableStateOf(false) }
 
+    // --- MANEJO DE RESPUESTAS DEL BACKEND ---
+
+    // 1. Escuchar Éxito
+    LaunchedEffect(uiState.checkoutSuccess) {
+        if (uiState.checkoutSuccess != null) {
+            val orderId = uiState.checkoutSuccess!!.id
+            Toast.makeText(context, "¡Compra Exitosa! Orden #$orderId", Toast.LENGTH_LONG).show()
+            cartViewModel.resetCheckoutStatus()
+            // Aquí podrías navegar a la pantalla de "Mis Pedidos" si quisieras
+        }
+    }
+
+    // 2. Escuchar Errores
+    LaunchedEffect(uiState.checkoutError) {
+        if (uiState.checkoutError != null) {
+            Toast.makeText(context, "Error: ${uiState.checkoutError}", Toast.LENGTH_LONG).show()
+            cartViewModel.resetCheckoutStatus()
+        }
+    }
+
     val formatClp = remember {
         NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
             maximumFractionDigits = 0
         }
     }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
     ) {
-        if (uiState.isLoading) {
+        // Si está cargando y NO es por checkout (ej. carga inicial), mostramos loading completo
+        if (uiState.isLoading && uiState.items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else if (uiState.items.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp), contentAlignment = Alignment.Center) {
                 Text("Tu carrito está vacío.", style = MaterialTheme.typography.headlineSmall)
             }
         } else {
@@ -88,24 +112,36 @@ fun CartScreen(
                     OutlinedButton(
                         onClick = { showEmptyCartDialog = true },
                         modifier = Modifier.weight(1f),
-                        enabled = uiState.items.isNotEmpty()
+                        enabled = !uiState.isLoading // Deshabilitar si se está procesando
                     ) {
                         Icon(Icons.Filled.RemoveShoppingCart, contentDescription = null)
                         Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
                         Text("Vaciar")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
+
+                    // --- BOTÓN FINALIZAR COMPRA ACTUALIZADO ---
                     Button(
                         onClick = {
-                            Toast.makeText(context, "Compra finalizada (simulado)", Toast.LENGTH_SHORT).show()
-                            cartViewModel.clearCart()
+                            // LLAMADA REAL AL BACKEND
+                            cartViewModel.performCheckout()
                         },
                         modifier = Modifier.weight(1f),
-                        enabled = uiState.items.isNotEmpty()
+                        // Deshabilitar botón mientras carga para evitar doble compra
+                        enabled = uiState.items.isNotEmpty() && !uiState.isLoading
                     ) {
-                        Icon(Icons.Filled.ShoppingCartCheckout, contentDescription = null)
-                        Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                        Text("Finalizar")
+                        if (uiState.isLoading) {
+                            // Mostrar spinner dentro del botón mientras procesa
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Filled.ShoppingCartCheckout, contentDescription = null)
+                            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                            Text("Finalizar")
+                        }
                     }
                 }
             }
@@ -145,7 +181,10 @@ fun CartItemRow(
 ) {
     val context = LocalContext.current
     val imageResId = remember(item.image) {
-        try { context.resources.getIdentifier(item.image.substringAfterLast('/'), "drawable", context.packageName) }
+        try {
+            val imageName = item.image.substringAfterLast('/').substringBeforeLast('.')
+            context.resources.getIdentifier(imageName, "drawable", context.packageName)
+        }
         catch (e: Exception) { 0 }
     }
 
@@ -166,18 +205,22 @@ fun CartItemRow(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Spacer(modifier = Modifier.size(60.dp).padding(end=12.dp))
+                Box(modifier = Modifier.size(60.dp).padding(end=12.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.BrokenImage,
+                        contentDescription = "No image",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
-
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text(currencyFormatter.format(parsePrice(item.price)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
             }
 
-            // Controles de cantidad
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDecrease, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onDecrease, modifier = Modifier.size(36.dp), enabled = item.quantity > 1) {
                     Icon(Icons.Filled.RemoveCircleOutline, contentDescription = "Disminuir")
                 }
                 Text(
@@ -190,7 +233,6 @@ fun CartItemRow(
                 }
             }
 
-            // Botón Eliminar
             IconButton(onClick = onRemove, modifier = Modifier.padding(start = 8.dp)) {
                 Icon(Icons.Filled.DeleteOutline, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
             }
@@ -198,9 +240,7 @@ fun CartItemRow(
     }
 }
 
-// Helper para parsear precio
 private fun parsePrice(value: String): Double {
-    if (!value.contains("$")) return 0.0
     val cleaned = value.replace(Regex("[^0-9]"), "")
     return cleaned.toDoubleOrNull() ?: 0.0
 }

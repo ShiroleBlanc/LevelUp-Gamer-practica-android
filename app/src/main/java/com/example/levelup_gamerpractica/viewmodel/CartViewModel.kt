@@ -7,14 +7,19 @@ import com.example.levelup_gamerpractica.data.local.AppRepository
 import com.example.levelup_gamerpractica.data.local.dao.CartItemWithDetails
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
 data class CartUiState(
     val items: List<CartItemWithDetails> = emptyList(),
     val totalAmount: Double = 0.0,
     val isLoading: Boolean = true
 ) {
+    // Helper para mostrar el total bonito en la UI
     fun formattedTotal(): String {
-        return "$${totalAmount.toLong()}"
+        val format = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+        format.maximumFractionDigits = 0
+        return format.format(totalAmount)
     }
 }
 
@@ -22,10 +27,15 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
 
     val uiState: StateFlow<CartUiState> = repository.cartItems
         .map { items ->
-            println("CartViewModel: Mapeando items, tamaño = ${items.size}")
+            // --- CORRECCIÓN AQUÍ ---
+            // 1. Accedemos a item.product.price (que ya es Double)
+            // 2. Accedemos a item.cartItem.quantity
+            // 3. Ya no usamos parsePrice porque el precio ya es numérico
+
             val total = items.sumOf { item ->
-                parsePrice(item.price) * item.quantity.toDouble()
+                item.product.price * item.cartItem.quantity
             }
+
             CartUiState(items = items, totalAmount = total, isLoading = false)
         }
         .stateIn(
@@ -34,15 +44,15 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
             initialValue = CartUiState(isLoading = true)
         )
 
-    fun increaseQuantity(productId: Int) {
+    fun increaseQuantity(productId: Long) {
         viewModelScope.launch { repository.increaseCartItemQuantity(productId) }
     }
 
-    fun decreaseQuantity(productId: Int) {
+    fun decreaseQuantity(productId: Long) {
         viewModelScope.launch { repository.decreaseCartItemQuantity(productId) }
     }
 
-    fun removeFromCart(productId: Int) {
+    fun removeFromCart(productId: Long) {
         viewModelScope.launch { repository.removeFromCart(productId) }
     }
 
@@ -50,11 +60,7 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch { repository.clearCart() }
     }
 
-    private fun parsePrice(value: String): Double {
-        if (!value.contains("$")) return 0.0
-        val cleaned = value.replace(Regex("[^0-9]"), "")
-        return cleaned.toDoubleOrNull() ?: 0.0
-    }
+    // He eliminado la función private fun parsePrice(...) porque ya no sirve.
 }
 
 class CartViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {

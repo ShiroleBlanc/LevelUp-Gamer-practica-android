@@ -20,10 +20,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.text.NumberFormat
-import java.util.Locale
+// Eliminamos NumberFormat, ya no lo necesitamos aquí
 import java.util.UUID
-// Imports para subida de archivos
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -51,9 +49,6 @@ class AppRepository(
     // AUTENTICACIÓN CON BACKEND (LOGIN Y REGISTRO)
     // ========================================================================
 
-    /**
-     * Registro: Envía los datos al backend.
-     */
     suspend fun registerUserApi(request: RegisterRequest): Result<String> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.register(request)
@@ -68,26 +63,17 @@ class AppRepository(
         }
     }
 
-    /**
-     * Login:
-     * 1. Envía credenciales.
-     * 2. Recibe y guarda Token.
-     * 3. Pide el perfil completo del usuario inmediatamente.
-     */
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
-            // 1. Login para obtener Token
             val request = LoginRequest(username, password)
             val loginResponse = apiService.login(request)
 
             if (loginResponse.isSuccessful && loginResponse.body() != null) {
                 val token = loginResponse.body()!!.token
 
-                // Guardar token
                 sessionManager.saveAuthToken(token)
                 TokenManager.setToken(token)
 
-                // 2. Obtener perfil REAL del usuario (con puntos, nivel, etc.)
                 val profileResponse = apiService.getUserProfile()
 
                 if (profileResponse.isSuccessful && profileResponse.body() != null) {
@@ -103,13 +89,11 @@ class AppRepository(
                         profilePictureUrl = profile.profilePictureUrl
                     )
 
-                    // Actualizar estado y caché local
                     _currentUser.value = user
                     userDao.insertUser(user)
 
                     Result.success(user)
                 } else {
-                    // Fallback si falla la carga del perfil pero el login fue bueno
                     val basicUser = User(id = 0, username = username, email = "")
                     _currentUser.value = basicUser
                     Result.success(basicUser)
@@ -124,10 +108,6 @@ class AppRepository(
         }
     }
 
-    /**
-     * Cargar Perfil (Auto-Login):
-     * Se usa cuando abres la app y ya tienes un token guardado.
-     */
     suspend fun loadUserProfile(): Boolean = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getUserProfile()
@@ -155,25 +135,22 @@ class AppRepository(
         }
     }
 
-    /**
-     * Logout: Limpia tokens y datos locales.
-     */
     suspend fun logoutUser() = withContext(Dispatchers.IO) {
-        sessionManager.logout()        // Borrar de disco
-        TokenManager.setToken(null)    // Borrar de memoria
-        _currentUser.value = null      // Limpiar estado UI
-        clearCart()                    // Vaciar carrito local
-        userDao.deleteAllUsers()       // Limpiar caché de usuarios
+        sessionManager.logout()
+        TokenManager.setToken(null)
+        _currentUser.value = null
+        clearCart()
+        userDao.deleteAllUsers()
     }
 
     // ========================================================================
-    // GESTIÓN DE PERFIL (Con subida al servidor)
+    // GESTIÓN DE PERFIL
     // ========================================================================
 
     private fun copyImageToInternalStorage(contentUri: Uri): String {
         val inputStream = context.contentResolver.openInputStream(contentUri)
-        val fileName = "temp_profile_upload.jpg" // Nombre temporal
-        val file = File(context.cacheDir, fileName) // Usamos cacheDir para temporal
+        val fileName = "temp_profile_upload.jpg"
+        val file = File(context.cacheDir, fileName)
         val outputStream = FileOutputStream(file)
 
         inputStream.use { input ->
@@ -189,37 +166,28 @@ class AppRepository(
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
 
             if (contentUriString == null) {
-                // Aquí podrías implementar un endpoint para borrar foto
                 userDao.updateProfilePicture(user.id, null)
                 _currentUser.value = user.copy(profilePictureUrl = null)
                 return@withContext Result.success(Unit)
             }
 
-            // 1. Obtener el archivo real desde la URI
             val uri = Uri.parse(contentUriString)
             val filePath = copyImageToInternalStorage(uri)
             val file = File(filePath)
 
-            // 2. Preparar la petición Multipart
             val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
             val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
 
-            // 3. ¡SUBIR AL SERVIDOR!
             val response = apiService.uploadProfilePicture(body)
 
             if (response.isSuccessful && response.body() != null) {
-                // 4. Obtener la nueva URL que nos da el servidor
                 val newUrl = response.body()!!["profilePictureUrl"]
 
                 if (newUrl != null) {
-                    // 5. Actualizar Base de Datos Local con la URL web
                     userDao.updateProfilePicture(user.id, newUrl)
                     _currentUser.value = user.copy(profilePictureUrl = newUrl)
                 }
-
-                // Borrar archivo temporal
                 if(file.exists()) file.delete()
-
                 Result.success(Unit)
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Error al subir imagen"
@@ -235,8 +203,6 @@ class AppRepository(
     suspend fun updateUserDetails(newUsername: String?, newEmail: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
-
-            // 1. Preparamos el mapa de actualizaciones
             val updates = mutableMapOf<String, String>()
 
             if (!newUsername.isNullOrBlank() && newUsername != user.username) {
@@ -250,13 +216,10 @@ class AppRepository(
                 return@withContext Result.success(Unit)
             }
 
-            // 2. Enviamos al Backend (PUT)
             val response = apiService.updateProfile(updates)
 
             if (response.isSuccessful && response.body() != null) {
                 val updatedProfile = response.body()!!
-
-                // 3. Actualizamos localmente
                 val updatedUser = user.copy(
                     username = updatedProfile.username,
                     email = updatedProfile.email
@@ -271,33 +234,29 @@ class AppRepository(
                 val errorMsg = response.errorBody()?.string() ?: "Error al actualizar perfil"
                 Result.failure(Exception(errorMsg))
             }
-
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
-        Result.success(Unit) // Pendiente implementar endpoint de cambio de contraseña
+        Result.success(Unit)
     }
 
-
     // ========================================================================
-    // PRODUCTOS (Desde el Backend)
+    // PRODUCTOS (CORREGIDO PARA LONG Y DOUBLE)
     // ========================================================================
 
     private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
-        val formatClp = NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
-            maximumFractionDigits = 0
-        }
-        val formattedPrice = formatClp.format(dto.price)
+        // CAMBIO IMPORTANTE: Ya no formateamos el precio a String.
+        // Lo pasamos directo como Double.
 
         return Product(
-            id = dto.id.toInt(),
+            id = dto.id.toLong(), // Aseguramos que sea Long
             name = dto.name,
-            price = formattedPrice,
+            price = dto.price,    // Double puro
             category = dto.category,
-            image = dto.image,
+            imageUrl = dto.imageUrl, // Cambiado de 'image' a 'imageUrl'
             description = dto.description,
             manufacturer = dto.manufacturer,
             distributor = dto.distributor
@@ -327,28 +286,30 @@ class AppRepository(
 
 
     // ========================================================================
-    // CARRITO (Local)
+    // CARRITO (ACTUALIZADO PARA USAR ID LONG)
     // ========================================================================
 
     val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
 
-    suspend fun addToCart(productId: Int) = withContext(Dispatchers.IO) {
+    // Todos los parámetros productId ahora son Long
+    suspend fun addToCart(productId: Long) = withContext(Dispatchers.IO) {
         val existingItem = database.cartDao().getCartItem(productId)
         if (existingItem != null) {
             database.cartDao().updateQuantity(productId, existingItem.quantity + 1)
         } else {
+            // Nota: Asegúrate de que tu entidad CartItem también tenga productId como Long
             database.cartDao().upsertCartItem(CartItem(productId = productId, quantity = 1))
         }
     }
 
-    suspend fun increaseCartItemQuantity(productId: Int) = withContext(Dispatchers.IO) {
+    suspend fun increaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
         val item = database.cartDao().getCartItem(productId)
         if (item != null) {
             database.cartDao().updateQuantity(productId, item.quantity + 1)
         }
     }
 
-    suspend fun decreaseCartItemQuantity(productId: Int) = withContext(Dispatchers.IO) {
+    suspend fun decreaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
         val item = database.cartDao().getCartItem(productId)
         if (item != null) {
             val newQuantity = item.quantity - 1
@@ -360,7 +321,7 @@ class AppRepository(
         }
     }
 
-    suspend fun removeFromCart(productId: Int) = withContext(Dispatchers.IO) {
+    suspend fun removeFromCart(productId: Long) = withContext(Dispatchers.IO) {
         database.cartDao().deleteCartItem(productId)
     }
 

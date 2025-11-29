@@ -3,6 +3,7 @@ package com.example.levelup_gamerpractica.ui.screens
 import android.Manifest
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,11 +59,12 @@ fun ProfileScreen(
 
     var imageRefreshTrigger by remember { mutableStateOf(System.currentTimeMillis()) }
 
-    // Estados de diálogos
     var showEditDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
-    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    // URI temporal para la cámara
+    var tempCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     val formUsername by profileViewModel.username.collectAsState()
     val formEmail by profileViewModel.email.collectAsState()
@@ -71,7 +74,9 @@ fun ProfileScreen(
 
     LaunchedEffect(uiState.error, uiState.isSuccess) {
         if (uiState.error != null) {
-            Toast.makeText(context, uiState.error, Toast.LENGTH_LONG).show()
+            val msg = if (uiState.error!!.isBlank()) "Error desconocido al actualizar" else uiState.error
+            Log.e("ProfileScreen", "Error UI: $msg")
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             profileViewModel.consumeUiState()
         }
         if (uiState.isSuccess) {
@@ -79,9 +84,7 @@ fun ProfileScreen(
             showEditDialog = false
             showPasswordDialog = false
             showPhotoDialog = false
-
             imageRefreshTrigger = System.currentTimeMillis()
-
             profileViewModel.consumeUiState()
             profileViewModel.refreshProfile()
         }
@@ -90,7 +93,10 @@ fun ProfileScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
-            if (uri != null) profileViewModel.updateProfilePicture(uri.toString())
+            if (uri != null) {
+                Log.d("ProfileScreen", "Galería seleccionada: $uri")
+                profileViewModel.updateProfilePicture(uri.toString())
+            }
             showPhotoDialog = false
         }
     )
@@ -98,7 +104,12 @@ fun ProfileScreen(
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
         onResult = { success ->
-            if (success) tempCameraUri?.let { profileViewModel.updateProfilePicture(it.toString()) }
+            if (success && tempCameraUri != null) {
+                Log.d("ProfileScreen", "Cámara exitosa. URI: $tempCameraUri")
+                profileViewModel.updateProfilePicture(tempCameraUri.toString())
+            } else {
+                Log.e("ProfileScreen", "Cámara cancelada o fallida. Success: $success, URI: $tempCameraUri")
+            }
             showPhotoDialog = false
         }
     )
@@ -107,11 +118,16 @@ fun ProfileScreen(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
             if (isGranted) {
-                val uri = context.createImageUri()
-                tempCameraUri = uri
-                cameraLauncher.launch(uri)
+                try {
+                    val uri = context.createImageUri()
+                    tempCameraUri = uri
+                    cameraLauncher.launch(uri)
+                } catch (e: Exception) {
+                    Log.e("ProfileScreen", "Error creando URI: ${e.message}")
+                    Toast.makeText(context, "Error al iniciar cámara: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             } else {
-                Toast.makeText(context, "Permiso denegado", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Se necesita permiso de cámara", Toast.LENGTH_SHORT).show()
             }
         }
     )
@@ -139,14 +155,8 @@ fun ProfileScreen(
             val painter = rememberVectorPainter(Icons.Default.Person)
 
             if (user.profilePictureUrl != null) {
-
                 val isUrl = user.profilePictureUrl.startsWith("http")
-
-                val imageModel = if (isUrl) {
-                    "${user.profilePictureUrl}?t=$imageRefreshTrigger"
-                } else {
-                    File(user.profilePictureUrl)
-                }
+                val imageModel = if (isUrl) "${user.profilePictureUrl}?t=$imageRefreshTrigger" else File(user.profilePictureUrl)
 
                 key(user.profilePictureUrl, imageRefreshTrigger) {
                     AsyncImage(
@@ -174,7 +184,6 @@ fun ProfileScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(text = user.username, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(text = user.email, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -188,29 +197,6 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(24.dp))
         Divider()
         Spacer(modifier = Modifier.height(24.dp))
-
-        if (user.userRole == "ROLE_DUOC") {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Mis Recompensas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Nivel Actual:")
-                        Text("Nivel ${user.userLevel}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Puntos Disponibles:")
-                        Text("${user.pointsBalance} Pts.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
 
         OutlinedButton(
             onClick = {
@@ -249,29 +235,31 @@ fun ProfileScreen(
             Text("Cerrar Sesión")
         }
     }
-
     if (showPhotoDialog) {
         AlertDialog(
             onDismissRequest = { showPhotoDialog = false },
-            title = { Text("Cambiar Foto de Perfil") },
-            text = { Text("Elige una opción:") },
+            title = { Text("Cambiar Foto") },
+            text = { Text("Selecciona el origen:") },
             confirmButton = {
-                TextButton(
-                    onClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                ) { Text("Galería") }
+                TextButton(onClick = {
+                    galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) { Text("Galería") }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                TextButton(onClick = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        try {
                             val uri = context.createImageUri()
                             tempCameraUri = uri
                             cameraLauncher.launch(uri)
-                        } else {
-                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        } catch (e: Exception) {
+                            Log.e("ProfileScreen", "Error URI Cámara: ${e.message}")
+                            Toast.makeText(context, "Error iniciando cámara: ${e.message}", Toast.LENGTH_LONG).show()
                         }
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.CAMERA)
                     }
-                ) { Text("Cámara") }
+                }) { Text("Cámara") }
             }
         )
     }
@@ -299,7 +287,6 @@ fun ProfileScreen(
         )
     }
 }
-
 @Composable
 private fun EditProfileDialog(
     username: String, email: String,
@@ -356,9 +343,13 @@ fun PasswordField(value: String, onValueChange: (String) -> Unit, label: String)
         singleLine = true, modifier = Modifier.fillMaxWidth()
     )
 }
-
 private fun Context.createImageUri(): Uri {
-    val file = File(filesDir, "camera_photos").apply { mkdirs() }
+    val file = File(cacheDir, "camera_photos").apply { mkdirs() }
     val imageFile = File(file, "img_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.jpg")
-    return FileProvider.getUriForFile(this, "${packageName}.provider", imageFile)
+
+    val authority = "${packageName}.provider"
+
+    Log.d("ProfileScreen", "Creando URI para: ${imageFile.absolutePath} con authority: $authority")
+
+    return FileProvider.getUriForFile(this, authority, imageFile)
 }

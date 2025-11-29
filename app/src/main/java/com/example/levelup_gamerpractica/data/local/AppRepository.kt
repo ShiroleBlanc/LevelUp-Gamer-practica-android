@@ -1,6 +1,8 @@
 package com.example.levelup_gamerpractica.data.local
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
 import com.example.levelup_gamerpractica.data.local.dao.CartItemWithDetails
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -43,7 +46,6 @@ class AppRepository(
     val currentUserNameFlow: Flow<String?> = currentUser.map { user ->
         user?.username
     }
-
 
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
@@ -187,6 +189,7 @@ class AppRepository(
 
             if (response.isSuccessful && response.body() != null) {
                 val backendCart = response.body()!!
+
                 cartDao.clearCart()
 
                 backendCart.items.forEach { itemDto ->
@@ -309,15 +312,41 @@ class AppRepository(
             Result.failure(e)
         }
     }
+    private fun compressAndCopyImage(contentUri: Uri): String {
+        val inputStream: InputStream? = context.contentResolver.openInputStream(contentUri)
 
-    // --- Helpers de Perfil ---
-    private fun copyImageToInternalStorage(contentUri: Uri): String {
-        val inputStream = context.contentResolver.openInputStream(contentUri)
-        val file = File(context.cacheDir, "temp_profile.jpg")
+        val originalBitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream?.close()
+
+        if (originalBitmap == null) throw Exception("No se pudo procesar la imagen")
+
+        val maxDimension = 1024
+        var width = originalBitmap.width
+        var height = originalBitmap.height
+
+        if (width > maxDimension || height > maxDimension) {
+            val ratio = width.toFloat() / height.toFloat()
+            if (ratio > 1) {
+                width = maxDimension
+                height = (width / ratio).toInt()
+            } else {
+                height = maxDimension
+                width = (height * ratio).toInt()
+            }
+        }
+
+        val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, true)
+
+        val file = File(context.cacheDir, "temp_profile_upload.jpg")
         val outputStream = FileOutputStream(file)
-        inputStream.use { input -> outputStream.use { output -> input?.copyTo(output) } }
+
+        resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+        outputStream.flush()
+        outputStream.close()
+
         return file.absolutePath
     }
+
     suspend fun updateProfilePicture(contentUriString: String?): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val user = _currentUser.value ?: throw Exception("No hay usuario logueado")
@@ -329,10 +358,11 @@ class AppRepository(
             }
 
             val uri = Uri.parse(contentUriString)
-            val filePath = copyImageToInternalStorage(uri)
+
+            val filePath = compressAndCopyImage(uri)
             val file = File(filePath)
 
-            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
             val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
 
             val response = apiService.uploadProfilePicture(body)
@@ -345,15 +375,21 @@ class AppRepository(
                     _currentUser.value = user.copy(profilePictureUrl = newUrl)
                 }
                 if(file.exists()) file.delete()
+
                 Result.success(Unit)
             } else {
-                val errorMsg = response.errorBody()?.string() ?: "Error al subir imagen"
+                val errorBodyStr = response.errorBody()?.string()
+                val errorMsg = if (!errorBodyStr.isNullOrBlank()) {
+                    errorBodyStr
+                } else {
+                    "Error del servidor: ${response.code()} ${response.message()}"
+                }
                 Result.failure(Exception(errorMsg))
             }
 
         } catch (e: Exception) {
             e.printStackTrace()
-            Result.failure(e)
+            Result.failure(Exception(e.message ?: "Error desconocido en repositorio"))
         }
     }
 

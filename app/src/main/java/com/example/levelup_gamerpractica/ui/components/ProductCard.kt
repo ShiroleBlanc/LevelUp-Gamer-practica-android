@@ -27,6 +27,8 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import com.example.levelup_gamerpractica.data.local.entities.Product
+import java.text.NumberFormat // <-- Nueva Importación
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,16 +45,22 @@ fun ProductCard(
         targetValue = if (isPressed) 0.8f else 1f,
         label = "Icon Scale Animation"
     )
+    val currencyFormatter = remember {
+        NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
+            // Quitamos los decimales para pesos chilenos (opcional)
+            maximumFractionDigits = 0
+        }
+    }
 
     // Lógica para determinar si es URL o Recurso Local
-    val isUrl = product.image.startsWith("http")
+    val isUrl = product.imageUrl.startsWith("http")
 
     // Si no es URL, intentamos buscar el ID del drawable por su nombre
-    val drawableResId = remember(product.image) {
+    val drawableResId = remember(product.imageUrl) {
         if (!isUrl) {
             // Limpiamos el nombre (por si viene con extensión o ruta)
             // Ej: "/assets/polera.png" -> "polera"
-            val cleanName = product.image.substringAfterLast("/").substringBeforeLast(".")
+            val cleanName = product.imageUrl.substringAfterLast("/").substringBeforeLast(".")
             context.resources.getIdentifier(cleanName, "drawable", context.packageName)
         } else {
             0
@@ -71,7 +79,7 @@ fun ProductCard(
                 // Opción A: Cargar desde Internet (Coil)
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(product.image)
+                        .data(product.imageUrl)
                         .crossfade(true)
                         .build(),
                     contentDescription = product.name,
@@ -150,7 +158,9 @@ fun ProductCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = product.price,
+                        // Agregamos el signo $ y convertimos el precio a String
+                        // .toInt() es opcional, pero en CLP se ve mejor sin decimales
+                        text = currencyFormatter.format(product.price),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.secondary
                     )

@@ -13,7 +13,7 @@ import com.example.levelup_gamerpractica.data.local.entities.User
 
 @Database(
     entities = [User::class, Product::class, CartItem::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

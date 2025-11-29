@@ -15,6 +15,6 @@ import androidx.room.PrimaryKey
     )]
 )
 data class CartItem(
-    @PrimaryKey val productId: Int,
+    @PrimaryKey val productId: Long,
     val quantity: Int
 )

@@ -10,7 +10,7 @@ data class ProductNetworkDto(
     val category: String,
 
     @SerializedName("imageUrl")
-    val image: String,
+    val imageUrl: String,
 
     val description: String,
     val manufacturer: String,

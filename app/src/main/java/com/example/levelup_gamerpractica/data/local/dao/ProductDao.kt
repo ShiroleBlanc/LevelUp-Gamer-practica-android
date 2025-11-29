@@ -26,7 +26,7 @@ interface ProductDao {
     fun getProductsByCategory(category: String): Flow<List<Product>>
 
     @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
-    suspend fun getProductById(productId: Int): Product?
+    suspend fun getProductById(productId: Long): Product?
 
     @Query("SELECT DISTINCT category FROM products ORDER BY category ASC")
     fun getAllCategories(): Flow<List<String>>

@@ -78,6 +78,9 @@ fun AppNavigation(
                 ProfileScreen(
                     modifier = Modifier.padding(innerPadding),
                     onLogout = {
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 )
             }

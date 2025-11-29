@@ -313,38 +313,45 @@ class AppRepository(
         }
     }
     private fun compressAndCopyImage(contentUri: Uri): String {
-        val inputStream: InputStream? = context.contentResolver.openInputStream(contentUri)
+        val contentResolver = context.contentResolver
 
-        val originalBitmap = BitmapFactory.decodeStream(inputStream)
-        inputStream?.close()
-
-        if (originalBitmap == null) throw Exception("No se pudo procesar la imagen")
-
-        val maxDimension = 1024
-        var width = originalBitmap.width
-        var height = originalBitmap.height
-
-        if (width > maxDimension || height > maxDimension) {
-            val ratio = width.toFloat() / height.toFloat()
-            if (ratio > 1) {
-                width = maxDimension
-                height = (width / ratio).toInt()
-            } else {
-                height = maxDimension
-                width = (height * ratio).toInt()
-            }
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        contentResolver.openInputStream(contentUri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
         }
 
-        val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, true)
+        options.inSampleSize = calculateInSampleSize(options, 800, 800)
+        options.inJustDecodeBounds = false
+
+        val bitmap = contentResolver.openInputStream(contentUri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        } ?: throw Exception("No se pudo procesar la imagen")
 
         val file = File(context.cacheDir, "temp_profile_upload.jpg")
-        val outputStream = FileOutputStream(file)
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, out)
+        }
 
-        resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
-        outputStream.flush()
-        outputStream.close()
+        bitmap.recycle()
 
         return file.absolutePath
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val (height: Int, width: Int) = options.run { outHeight to outWidth }
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight: Int = height / 2
+            val halfWidth: Int = width / 2
+
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 
     suspend fun updateProfilePicture(contentUriString: String?): Result<Unit> = withContext(Dispatchers.IO) {

@@ -23,19 +23,11 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
     private val _selectedCategory = MutableStateFlow("Todos")
 
     init {
-        // Cargar productos al iniciar
         viewModelScope.launch {
             repository.refreshProducts()
         }
     }
 
-    /**
-     * Combinamos 4 flujos de datos:
-     * 1. Lista de categorías
-     * 2. Lista de productos (filtrada dinámicamente)
-     * 3. Categoría seleccionada
-     * 4. Nombre de usuario actual
-     */
     val uiState: StateFlow<CatalogUiState> = combine(
         repository.allCategories,
         _selectedCategory.flatMapLatest { category ->
@@ -48,7 +40,6 @@ class CatalogViewModel(private val repository: AppRepository) : ViewModel() {
         _selectedCategory,
         repository.currentUserNameFlow
     ) { categories: List<String>, products: List<Product>, selectedCat: String, userName: String? ->
-        // ^^^ He añadido los tipos explícitos aquí para evitar errores de compilación
 
         CatalogUiState(
             products = products,

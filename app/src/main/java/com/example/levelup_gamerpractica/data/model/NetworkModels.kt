@@ -2,8 +2,6 @@ package com.example.levelup_gamerpractica.data.model
 
 import com.example.levelup_gamerpractica.data.remote.ProductNetworkDto
 
-// --- CARRITO ---
-
 data class CartResponse(
     val id: Long,
     val items: List<CartItemResponse>,
@@ -12,7 +10,7 @@ data class CartResponse(
 
 data class CartItemResponse(
     val id: Long,
-    val product: ProductNetworkDto, // Reutilizamos el DTO de producto existente
+    val product: ProductNetworkDto,
     val quantity: Int
 )
 
@@ -24,8 +22,6 @@ data class CartItemRequest(
 data class UpdateCartItemRequest(
     val quantity: Int
 )
-
-// --- ÓRDENES (PEDIDOS) ---
 
 data class OrderResponse(
     val id: Long,

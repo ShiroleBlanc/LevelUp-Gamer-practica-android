@@ -23,9 +23,6 @@ object Routes {
 
 @Composable
 fun AppNavigation(
-    // CAMBIO IMPORTANTE:
-    // Por defecto la app iniciará SIEMPRE en el Catálogo.
-    // El usuario podrá navegar libremente y solo se le pedirá Login si intenta pagar o entrar al perfil.
     startDestination: String = Routes.CATALOG
 ) {
     val navController = rememberNavController()
@@ -37,9 +34,6 @@ fun AppNavigation(
                 LoginScreen(
                     modifier = Modifier.padding(innerPadding),
                     onLoginSuccess = {
-                        // Al loguearse exitosamente, volvemos al catálogo.
-                        // Usamos popUpTo(0) para limpiar TODA la pila anterior y dejar el Catálogo como única pantalla.
-                        // Esto evita que al dar "atrás" volvamos al Login.
                         navController.navigate(Routes.CATALOG) {
                             popUpTo(0) { inclusive = true }
                         }
@@ -84,8 +78,6 @@ fun AppNavigation(
                 ProfileScreen(
                     modifier = Modifier.padding(innerPadding),
                     onLogout = {
-                        // Al cerrar sesión, el MainAppScaffold ya tiene lógica,
-                        // pero aquí podrías manejar acciones extra si fuera necesario.
                     }
                 )
             }

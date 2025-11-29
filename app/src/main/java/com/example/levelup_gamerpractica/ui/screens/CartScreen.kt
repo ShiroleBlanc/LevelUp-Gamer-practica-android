@@ -38,14 +38,12 @@ fun CartScreen(
     val context = LocalContext.current
     var showEmptyCartDialog by remember { mutableStateOf(false) }
 
-    // Formateador de moneda (CLP)
     val formatClp = remember {
         NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
             maximumFractionDigits = 0
         }
     }
 
-    // --- EFECTO PARA MENSAJES DE CHECKOUT ---
     LaunchedEffect(uiState.checkoutMessage) {
         uiState.checkoutMessage?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
@@ -87,7 +85,6 @@ fun CartScreen(
                 }
             }
 
-            // --- Resumen y Botones ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -126,10 +123,8 @@ fun CartScreen(
                             Text("Vaciar")
                         }
 
-                        // --- BOTÓN PAGAR REAL ---
                         Button(
                             onClick = {
-                                // Llamada al checkout real
                                 cartViewModel.performCheckout()
                             },
                             modifier = Modifier.weight(1f)

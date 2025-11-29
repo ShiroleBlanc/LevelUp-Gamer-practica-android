@@ -17,8 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -63,19 +61,12 @@ fun MainAppScaffold(
                     }
                     HorizontalDivider()
                 }
-
-                // --- ÍTEMS DEL MENÚ ---
-
-                // 1. CATÁLOGO (Inicio)
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Storefront, contentDescription = "Catálogo") },
                     label = { Text("Catálogo") },
                     selected = currentRoute == Routes.CATALOG,
                     onClick = {
-                        // Navegar al Catálogo y limpiar la pila hasta él
                         navController.navigate(Routes.CATALOG) {
-                            // Esto dice: "Vuelve atrás hasta encontrar la pantalla de Catálogo"
-                            // inclusive = false significa "No borres el Catálogo, quédate ahí"
                             popUpTo(Routes.CATALOG) {
                                 inclusive = false
                             }
@@ -86,14 +77,12 @@ fun MainAppScaffold(
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
 
-                // 2. CARRITO
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.ShoppingCart, contentDescription = "Carrito") },
                     label = { Text("Carrito") },
                     selected = currentRoute == Routes.CART,
                     onClick = {
                         navController.navigate(Routes.CART) {
-                            // Al ir al carrito, volvemos al Catálogo como base
                             popUpTo(Routes.CATALOG) {
                                 saveState = true
                             }
@@ -108,7 +97,6 @@ fun MainAppScaffold(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                 if (currentUser == null) {
-                    // --- MENÚ PARA NO LOGUEADOS ---
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión") },
                         label = { Text("Iniciar Sesión") },
@@ -130,7 +118,6 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 } else {
-                    // --- MENÚ PARA USUARIOS LOGUEADOS ---
                     NavigationDrawerItem(
                         icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") },
                         label = { Text("Mi Perfil") },
@@ -198,12 +185,10 @@ fun MainAppScaffold(
                                 modifier = Modifier.padding(end = 8.dp)
                             ) {
                                 if (currentUser?.profilePictureUrl != null) {
-                                    // Usamos Coil para cargar la URL
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current)
                                             .data(currentUser?.profilePictureUrl)
                                             .crossfade(true)
-                                            // Truco: Añadir timestamp en el ViewModel o aquí para forzar recarga si cambia
                                             .build(),
                                         contentDescription = "Foto de perfil",
                                         modifier = Modifier

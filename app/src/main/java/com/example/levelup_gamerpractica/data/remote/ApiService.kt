@@ -29,14 +29,12 @@ interface ApiService {
     @PUT("api/profile/me")
     suspend fun updateProfile(@Body updates: Map<String, String>): Response<ProfileResponse>
 
-    // --- CARRITO (NUEVO) ---
     @GET("api/cart")
     suspend fun getMyCart(): Response<CartResponse>
 
     @POST("api/cart/items")
     suspend fun addItemToCart(@Body request: CartItemRequest): Response<CartResponse>
 
-    // Usamos un Map para el body porque el backend espera un objeto JSON {"quantity": X}
     @PUT("api/cart/items/{productId}")
     suspend fun updateCartItem(@Path("productId") productId: Int, @Body body: Map<String, Int>): Response<CartResponse>
 
@@ -46,7 +44,6 @@ interface ApiService {
     @DELETE("api/cart")
     suspend fun clearCartApi(): Response<CartResponse>
 
-    // --- ÓRDENES / CHECKOUT (NUEVO) ---
     @POST("api/orders/checkout")
     suspend fun checkout(): Response<OrderResponse>
 

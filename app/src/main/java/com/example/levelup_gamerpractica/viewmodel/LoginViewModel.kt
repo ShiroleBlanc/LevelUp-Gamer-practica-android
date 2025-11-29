@@ -17,7 +17,6 @@ sealed class LoginUiState {
 
 class LoginViewModel(private val repository: AppRepository) : ViewModel() {
 
-    // CAMBIO: Usamos username en lugar de email para coincidir con el backend
     private val _username = MutableStateFlow("")
     val username = _username.asStateFlow()
 
@@ -39,8 +38,6 @@ class LoginViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = LoginUiState.Loading
 
-            // CAMBIO: Llamamos a la función de API del repositorio
-            // No hasheamos la contraseña aquí, se envía plana (HTTPS se encarga de la seguridad en producción)
             val result = repository.loginUserApi(username.value.trim(), password.value)
 
             _uiState.value = result.fold(

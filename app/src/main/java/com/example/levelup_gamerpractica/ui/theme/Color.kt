@@ -2,7 +2,7 @@ package com.example.levelup_gamerpractica.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Tus colores base definidos
+// Colores personalizados definidos
 val ElectricBlue = Color(0xFF1E90FF)
 val NeonGreen = Color(0xFF39FF14)
 val DeepBlack = Color(0xFF000000)

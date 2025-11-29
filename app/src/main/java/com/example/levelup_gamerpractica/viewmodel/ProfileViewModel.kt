@@ -12,9 +12,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// Estado de la UI
 data class ProfileUiState(
-    val user: User? = null, // Aquí vive el usuario con sus puntos y rol
+    val user: User? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val isSuccess: Boolean = false
@@ -25,7 +24,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    // Campos para los formularios de edición (Dialogs)
     val username = MutableStateFlow("")
     val email = MutableStateFlow("")
     val oldPassword = MutableStateFlow("")
@@ -33,13 +31,10 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
     val confirmNewPassword = MutableStateFlow("")
 
     init {
-        // 1. Observar al usuario actual desde el Repositorio (Room)
-        // Esto mantiene la UI sincronizada con la base de datos local
         viewModelScope.launch {
             repository.currentUser.collectLatest { user ->
                 _uiState.update { it.copy(user = user) }
 
-                // Si hay usuario, pre-llenamos los campos de edición
                 if (user != null) {
                     username.value = user.username
                     email.value = user.email
@@ -47,19 +42,15 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
             }
         }
 
-        // 2. Refrescar datos desde el Backend al iniciar
-        // Esto asegura que veamos los puntos y nivel más recientes
         refreshProfile()
     }
 
     fun refreshProfile() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            // Llama a la función que creamos en AppRepository
             val success = repository.loadUserProfile()
 
             if (!success) {
-                // No mostramos error crítico, solo dejamos los datos locales
                 _uiState.update { it.copy(isLoading = false) }
             } else {
                 _uiState.update { it.copy(isLoading = false) }
@@ -67,7 +58,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    // Actualizar Foto (Llamada al Repo)
     fun updateProfilePicture(uri: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, isSuccess = false) }
@@ -79,7 +69,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    // Actualizar Datos de Texto (Llamada al Repo)
     fun updateDetails() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, isSuccess = false) }
@@ -91,7 +80,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    // Actualizar Contraseña (Llamada al Repo)
     fun updatePassword() {
         if (newPassword.value != confirmNewPassword.value) {
             _uiState.update { it.copy(error = "Las contraseñas no coinciden") }

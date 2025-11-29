@@ -48,13 +48,10 @@ private val DarkColorScheme = darkColorScheme(
     outline = ElectricBlue          // Bordes, divisores (usamos el primario)
 )
 
-// --- Esquema Claro (puedes definirlo si planeas tener ambos temas) ---
-// Por ahora, lo dejamos con los valores por defecto o unos básicos
 private val LightColorScheme = lightColorScheme(
     primary = Purple40,
     secondary = PurpleGrey40,
     tertiary = Pink40
-    /* Otros colores por defecto... */
 )
 
 @Composable
@@ -85,7 +82,7 @@ fun LevelUpGamerPracticaTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography, // Asegúrate de que Typography esté definido en Type.kt
+        typography = Typography,
         content = content
     )
 }

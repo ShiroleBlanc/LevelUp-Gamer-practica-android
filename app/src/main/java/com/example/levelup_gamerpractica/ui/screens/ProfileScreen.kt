@@ -55,7 +55,6 @@ fun ProfileScreen(
     val uiState by profileViewModel.uiState.collectAsState()
     val user = uiState.user
 
-    // Variable para forzar la recarga de la imagen (Solo para URLs web)
     var imageRefreshTrigger by remember { mutableStateOf(System.currentTimeMillis()) }
 
     // Estados de diálogos
@@ -64,7 +63,6 @@ fun ProfileScreen(
     var showPhotoDialog by remember { mutableStateOf(false) }
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Form variables
     val formUsername by profileViewModel.username.collectAsState()
     val formEmail by profileViewModel.email.collectAsState()
     val formOldPass by profileViewModel.oldPassword.collectAsState()
@@ -82,7 +80,6 @@ fun ProfileScreen(
             showPasswordDialog = false
             showPhotoDialog = false
 
-            // Actualizamos el trigger
             imageRefreshTrigger = System.currentTimeMillis()
 
             profileViewModel.consumeUiState()
@@ -90,7 +87,6 @@ fun ProfileScreen(
         }
     }
 
-    // --- LAUNCHERS ---
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
@@ -132,7 +128,6 @@ fun ProfileScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- FOTO DE PERFIL ---
         Box(
             modifier = Modifier
                 .size(140.dp)
@@ -145,18 +140,14 @@ fun ProfileScreen(
 
             if (user.profilePictureUrl != null) {
 
-                // --- LÓGICA INTELIGENTE PARA LA IMAGEN ---
                 val isUrl = user.profilePictureUrl.startsWith("http")
 
                 val imageModel = if (isUrl) {
-                    // Si es URL web, usamos el truco del tiempo para evitar caché
                     "${user.profilePictureUrl}?t=$imageRefreshTrigger"
                 } else {
-                    // Si es archivo local, usamos File() directo (el nombre cambia por UUID, así que se actualiza solo)
                     File(user.profilePictureUrl)
                 }
 
-                // Usamos key para forzar recomposición si la ruta cambia
                 key(user.profilePictureUrl, imageRefreshTrigger) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -174,7 +165,6 @@ fun ProfileScreen(
                 Icon(painter, null, modifier = Modifier.size(60.dp))
             }
 
-            // Icono de cámara (Overlay)
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
@@ -185,7 +175,6 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- DATOS BÁSICOS ---
         Text(text = user.username, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(text = user.email, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -200,7 +189,6 @@ fun ProfileScreen(
         Divider()
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- SECCIÓN DE PUNTOS (Solo Duoc) ---
         if (user.userRole == "ROLE_DUOC") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -224,7 +212,6 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // --- BOTONES DE ACCIÓN ---
         OutlinedButton(
             onClick = {
                 profileViewModel.username.value = user.username
@@ -262,8 +249,6 @@ fun ProfileScreen(
             Text("Cerrar Sesión")
         }
     }
-
-    // --- DIÁLOGOS ---
 
     if (showPhotoDialog) {
         AlertDialog(
@@ -314,8 +299,6 @@ fun ProfileScreen(
         )
     }
 }
-
-// --- COMPONENTES AUXILIARES ---
 
 @Composable
 private fun EditProfileDialog(

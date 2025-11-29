@@ -33,7 +33,6 @@ fun CatalogScreen(
         .fillMaxSize()
         .padding(paddingValues)) {
 
-        // --- INICIO: MENSAJE DE BIENVENIDA ---
         if (uiState.userName != null) {
             Text(
                 text = "¡Bienvenido, ${uiState.userName} A LevelUpGamer La mejor tienda gamer del mundo ",
@@ -45,14 +44,12 @@ fun CatalogScreen(
         }
 
 
-        // --- Barra de Filtro de Categorías ---
         FilterBar(
             categories = uiState.categories,
             selectedCategory = uiState.selectedCategory,
             onCategorySelected = catalogViewModel::selectCategory
         )
 
-        // --- Grid de Productos ---
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -84,7 +81,6 @@ fun CatalogScreen(
     }
 }
 
-// Composable para la barra de filtros
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterBar(

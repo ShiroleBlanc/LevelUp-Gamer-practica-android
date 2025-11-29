@@ -1,6 +1,5 @@
 package com.example.levelup_gamerpractica.ui.components
 
-import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -27,7 +26,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import com.example.levelup_gamerpractica.data.local.entities.Product
-import java.text.NumberFormat // <-- Nueva Importación
+import java.text.NumberFormat
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +46,6 @@ fun ProductCard(
     )
     val currencyFormatter = remember {
         NumberFormat.getCurrencyInstance(Locale("es", "CL")).apply {
-            // Quitamos los decimales para pesos chilenos (opcional)
             maximumFractionDigits = 0
         }
     }
@@ -58,8 +56,6 @@ fun ProductCard(
     // Si no es URL, intentamos buscar el ID del drawable por su nombre
     val drawableResId = remember(product.imageUrl) {
         if (!isUrl) {
-            // Limpiamos el nombre (por si viene con extensión o ruta)
-            // Ej: "/assets/polera.png" -> "polera"
             val cleanName = product.imageUrl.substringAfterLast("/").substringBeforeLast(".")
             context.resources.getIdentifier(cleanName, "drawable", context.packageName)
         } else {
@@ -73,10 +69,7 @@ fun ProductCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column {
-
-            // --- RENDERIZADO DE IMAGEN HÍBRIDO ---
             if (isUrl) {
-                // Opción A: Cargar desde Internet (Coil)
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(product.imageUrl)
@@ -106,7 +99,6 @@ fun ProductCard(
                     }
                 }
             } else {
-                // Opción B: Cargar desde Drawable (Local)
                 if (drawableResId != 0) {
                     Image(
                         painter = painterResource(id = drawableResId),
@@ -114,10 +106,9 @@ fun ProductCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f),
-                        contentScale = ContentScale.Crop // Ajuste para que llene el cuadro
+                        contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Opción C: No se encontró ni URL ni Drawable válido
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -158,8 +149,6 @@ fun ProductCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        // Agregamos el signo $ y convertimos el precio a String
-                        // .toInt() es opcional, pero en CLP se ve mejor sin decimales
                         text = currencyFormatter.format(product.price),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.secondary

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 
 class SessionManager(context: Context) {
-    // Asegúrate de que este nombre "LevelUpPrefs" sea el mismo siempre
     private var prefs: SharedPreferences = context.getSharedPreferences("LevelUpPrefs", Context.MODE_PRIVATE)
 
     companion object {
@@ -14,7 +13,7 @@ class SessionManager(context: Context) {
     fun saveAuthToken(token: String) {
         val editor = prefs.edit()
         editor.putString(USER_TOKEN, token)
-        editor.apply() // Guarda en disco
+        editor.apply()
     }
 
     fun fetchAuthToken(): String? {

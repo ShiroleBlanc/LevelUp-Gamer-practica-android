@@ -10,12 +10,11 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
-// Añadimos estados para manejar el resultado de la compra
 data class CartUiState(
     val items: List<CartItemWithDetails> = emptyList(),
     val totalAmount: Double = 0.0,
     val isLoading: Boolean = true,
-    val checkoutMessage: String? = null, // Mensaje de éxito o error
+    val checkoutMessage: String? = null,
     val isCheckoutSuccess: Boolean = false
 ) {
     fun formattedTotal(): String {
@@ -27,7 +26,6 @@ data class CartUiState(
 
 class CartViewModel(private val repository: AppRepository) : ViewModel() {
 
-    // Combinamos el flujo del repo con un flujo local para mensajes
     private val _checkoutState = MutableStateFlow<Pair<String?, Boolean>>(null to false)
 
     val uiState: StateFlow<CartUiState> = combine(
@@ -64,13 +62,10 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch { repository.clearCart() }
     }
 
-    // NUEVA FUNCIÓN DE CHECKOUT REAL
     fun performCheckout() {
         viewModelScope.launch {
-            // 1. Llamar al repositorio
             val result = repository.checkout()
 
-            // 2. Actualizar estado según resultado
             result.fold(
                 onSuccess = { message ->
                     _checkoutState.value = message to true

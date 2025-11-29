@@ -24,39 +24,24 @@ class MainActivity : ComponentActivity() {
         val sessionManager = SessionManager(this)
         val savedToken = sessionManager.fetchAuthToken()
 
-        // Obtenemos el repositorio desde la Application
         val repository = (application as LevelUpGamerApplication).repository
 
-        // CAMBIO 1: Definimos el destino inicial SIEMPRE como el Catálogo.
-        // Ya no importa si hay token o no para la navegación inicial.
         val startDestination = Routes.CATALOG
 
-        // Lógica de restauración de sesión (en segundo plano)
         if (savedToken != null) {
             Log.d("DEBUG_SESION", "Token encontrado. Restaurando sesión...")
 
-            // 1. Ponemos el token en memoria para que las llamadas API funcionen
             TokenManager.setToken(savedToken)
 
-            // 2. Validamos el token intentando cargar el perfil
             lifecycleScope.launch {
-                // Esto actualizará el 'currentUser' en el Repositorio,
-                // lo que a su vez actualizará la UI (foto de perfil, menú) reactivamente.
                 val success = repository.loadUserProfile()
 
                 if (success) {
                     Log.d("DEBUG_SESION", "Perfil cargado. Usuario validado.")
                 } else {
                     Log.e("DEBUG_SESION", "Token expirado o inválido. Limpiando sesión.")
-
-                    // Si el token no sirve, simplemente limpiamos.
-                    // Como ya estamos en el Catálogo, la UI se actualizará sola
-                    // (se ocultará la foto de perfil y aparecerá "Iniciar Sesión" en el menú).
                     sessionManager.logout()
                     TokenManager.setToken(null)
-
-                    // Nota: Ya no es necesario reiniciar la Activity (finish/startActivity)
-                    // porque la UI es reactiva gracias a los Flows del ViewModel.
                 }
             }
         }
@@ -67,7 +52,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Siempre inicia en Catálogo
                     AppNavigation(startDestination = startDestination)
                 }
             }

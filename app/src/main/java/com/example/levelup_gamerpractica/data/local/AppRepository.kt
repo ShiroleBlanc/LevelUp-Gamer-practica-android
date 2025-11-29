@@ -31,14 +31,12 @@ class AppRepository(
     private val context: Context
 ) {
 
-    // --- INSTANCIAS ---
     private val apiService = RetrofitInstance.api
     private val productDao = database.productDao()
     private val userDao = database.userDao()
     private val cartDao = database.cartDao()
     private val sessionManager = SessionManager(context)
 
-    // --- ESTADO DE USUARIO ---
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: Flow<User?> = _currentUser.asStateFlow()
 
@@ -46,9 +44,6 @@ class AppRepository(
         user?.username
     }
 
-    // ========================================================================
-    // AUTENTICACIÓN
-    // ========================================================================
 
     suspend fun loginUserApi(username: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
@@ -79,7 +74,6 @@ class AppRepository(
                     _currentUser.value = user
                     userDao.insertUser(user)
 
-                    // Sincronizamos carrito DESPUÉS de guardar usuario
                     syncCartFromBackend()
 
                     Result.success(user)
@@ -153,10 +147,6 @@ class AppRepository(
         userDao.deleteAllUsers()
     }
 
-    // ========================================================================
-    // PRODUCTOS
-    // ========================================================================
-
     private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
         return Product(
             id = dto.id,
@@ -176,11 +166,6 @@ class AppRepository(
                 val list = apiService.getAllProducts()
                 val entities = list.map { mapDtoToEntity(it) }
 
-                // --- CORRECCIÓN DEFINITIVA ---
-                // Usamos safeUpsertAll. Esto actualiza precios/nombres
-                // SIN BORRAR la fila, por lo que el carrito NO se pierde.
-                // NO usar productDao.deleteAll() aquí.
-
                 productDao.safeUpsertAll(entities)
 
                 println("AppRepository: Productos actualizados (Safe Upsert).")
@@ -194,11 +179,6 @@ class AppRepository(
     val allCategories = productDao.getAllCategories()
     fun getProductsByCategory(cat: String) = productDao.getProductsByCategory(cat)
 
-
-    // ========================================================================
-    // CARRITO
-    // ========================================================================
-
     val cartItems: Flow<List<CartItemWithDetails>> = cartDao.getCartItemsWithDetails()
 
     private suspend fun syncCartFromBackend() {
@@ -207,16 +187,10 @@ class AppRepository(
 
             if (response.isSuccessful && response.body() != null) {
                 val backendCart = response.body()!!
-
-                // Limpiamos solo el carrito local para evitar duplicados viejos
                 cartDao.clearCart()
 
                 backendCart.items.forEach { itemDto ->
                     val productEntity = mapDtoToEntity(itemDto.product)
-
-                    // --- CORRECCIÓN DEFINITIVA ---
-                    // Aseguramos que el producto exista o se actualice SIN BORRARLO
-                    // Esto evita el error de llave foránea al insertar el CartItem
                     productDao.safeUpsertProduct(productEntity)
 
                     cartDao.upsertCartItem(

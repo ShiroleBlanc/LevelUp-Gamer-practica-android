@@ -30,7 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "levelup_gamer_database" // Nombre del archivo de la BD
+                    "levelup_gamer_database"
                 )
                     .fallbackToDestructiveMigration()
                     .build()

@@ -8,9 +8,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CartDao {
 
-    // --- CAMBIO PRINCIPAL ---
-    // 1. Usamos @Transaction porque Room hará dos consultas internas (una para el carrito, otra para buscar los productos)
-    // 2. Seleccionamos SOLO la tabla del carrito. Room llenará los datos del producto automáticamente gracias a @Relation
+
     @Transaction
     @Query("SELECT * FROM cart_items")
     fun getCartItemsWithDetails(): Flow<List<CartItemWithDetails>>

@@ -12,10 +12,6 @@ data class User(
     val username: String,
     val email: String,
 
-    // --- CAMPO ELIMINADO: passwordHash ---
-    // (La seguridad la maneja el Token JWT, no guardamos claves aquí)
-
-    // URL de la foto que viene del servidor (http://10.0.2.2:8081/uploads/...)
     val profilePictureUrl: String? = null,
 
     // --- NUEVOS CAMPOS DE GAMIFICACIÓN ---

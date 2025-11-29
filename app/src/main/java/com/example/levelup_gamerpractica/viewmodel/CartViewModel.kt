@@ -10,12 +10,14 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
+// Añadimos estados para manejar el resultado de la compra
 data class CartUiState(
     val items: List<CartItemWithDetails> = emptyList(),
     val totalAmount: Double = 0.0,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val checkoutMessage: String? = null, // Mensaje de éxito o error
+    val isCheckoutSuccess: Boolean = false
 ) {
-    // Helper para mostrar el total bonito en la UI
     fun formattedTotal(): String {
         val format = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
         format.maximumFractionDigits = 0
@@ -25,24 +27,26 @@ data class CartUiState(
 
 class CartViewModel(private val repository: AppRepository) : ViewModel() {
 
-    val uiState: StateFlow<CartUiState> = repository.cartItems
-        .map { items ->
-            // --- CORRECCIÓN AQUÍ ---
-            // 1. Accedemos a item.product.price (que ya es Double)
-            // 2. Accedemos a item.cartItem.quantity
-            // 3. Ya no usamos parsePrice porque el precio ya es numérico
+    // Combinamos el flujo del repo con un flujo local para mensajes
+    private val _checkoutState = MutableStateFlow<Pair<String?, Boolean>>(null to false)
 
-            val total = items.sumOf { item ->
-                item.product.price * item.cartItem.quantity
-            }
-
-            CartUiState(items = items, totalAmount = total, isLoading = false)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = CartUiState(isLoading = true)
+    val uiState: StateFlow<CartUiState> = combine(
+        repository.cartItems,
+        _checkoutState
+    ) { items, (msg, success) ->
+        val total = items.sumOf { it.product.price * it.cartItem.quantity }
+        CartUiState(
+            items = items,
+            totalAmount = total,
+            isLoading = false,
+            checkoutMessage = msg,
+            isCheckoutSuccess = success
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = CartUiState(isLoading = true)
+    )
 
     fun increaseQuantity(productId: Long) {
         viewModelScope.launch { repository.increaseCartItemQuantity(productId) }
@@ -60,7 +64,27 @@ class CartViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch { repository.clearCart() }
     }
 
-    // He eliminado la función private fun parsePrice(...) porque ya no sirve.
+    // NUEVA FUNCIÓN DE CHECKOUT REAL
+    fun performCheckout() {
+        viewModelScope.launch {
+            // 1. Llamar al repositorio
+            val result = repository.checkout()
+
+            // 2. Actualizar estado según resultado
+            result.fold(
+                onSuccess = { message ->
+                    _checkoutState.value = message to true
+                },
+                onFailure = { error ->
+                    _checkoutState.value = (error.message ?: "Error al procesar pago") to false
+                }
+            )
+        }
+    }
+
+    fun consumeCheckoutMessage() {
+        _checkoutState.value = null to false
+    }
 }
 
 class CartViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {

@@ -45,6 +45,14 @@ fun CartScreen(
         }
     }
 
+    // --- EFECTO PARA MENSAJES DE CHECKOUT ---
+    LaunchedEffect(uiState.checkoutMessage) {
+        uiState.checkoutMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            cartViewModel.consumeCheckoutMessage()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -68,11 +76,9 @@ fun CartScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // CORRECCIÓN 1: Usamos item.product.id (que es Long) como key
                 items(uiState.items, key = { item -> item.product.id }) { item ->
                     CartItemRow(
                         item = item,
-                        // CORRECCIÓN 2: Pasamos el ID Long al ViewModel
                         onIncrease = { cartViewModel.increaseQuantity(item.product.id) },
                         onDecrease = { cartViewModel.decreaseQuantity(item.product.id) },
                         onRemove = { cartViewModel.removeFromCart(item.product.id) },
@@ -119,10 +125,12 @@ fun CartScreen(
                             Spacer(modifier = Modifier.size(8.dp))
                             Text("Vaciar")
                         }
+
+                        // --- BOTÓN PAGAR REAL ---
                         Button(
                             onClick = {
-                                Toast.makeText(context, "Compra finalizada (simulado)", Toast.LENGTH_SHORT).show()
-                                cartViewModel.clearCart()
+                                // Llamada al checkout real
+                                cartViewModel.performCheckout()
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -167,11 +175,9 @@ fun CartItemRow(
     onRemove: () -> Unit,
     currencyFormatter: NumberFormat
 ) {
-    // CORRECCIÓN 3: Accedemos a item.product y item.cartItem
     val product = item.product
     val quantity = item.cartItem.quantity
 
-    // Lógica para determinar imagen (URL o Recurso)
     val isUrl = product.imageUrl.startsWith("http")
     val context = LocalContext.current
 
@@ -185,7 +191,6 @@ fun CartItemRow(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // IMAGEN (Usando Coil para URLs)
             Box(
                 modifier = Modifier
                     .size(70.dp)
@@ -203,7 +208,6 @@ fun CartItemRow(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    // Fallback para recursos locales antiguos
                     val resId = try {
                         context.resources.getIdentifier(product.imageUrl.substringAfterLast("/").substringBefore("."), "drawable", context.packageName)
                     } catch (e: Exception) { 0 }
@@ -221,7 +225,6 @@ fun CartItemRow(
                 }
             }
 
-            // INFO PRODUCTO
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = product.name,
@@ -230,7 +233,6 @@ fun CartItemRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    // CORRECCIÓN 4: Usamos product.price (Double) directo
                     text = currencyFormatter.format(product.price),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary,
@@ -238,7 +240,6 @@ fun CartItemRow(
                 )
             }
 
-            // CONTROLES DE CANTIDAD
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 4.dp)
@@ -266,7 +267,6 @@ fun CartItemRow(
                 }
             }
 
-            // BOTÓN ELIMINAR
             IconButton(onClick = onRemove) {
                 Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
             }

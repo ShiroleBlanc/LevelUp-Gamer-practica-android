@@ -2,10 +2,12 @@ package com.example.levelup_gamerpractica.data.local
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.example.levelup_gamerpractica.data.local.dao.CartItemWithDetails
 import com.example.levelup_gamerpractica.data.local.entities.CartItem
 import com.example.levelup_gamerpractica.data.local.entities.Product
 import com.example.levelup_gamerpractica.data.local.entities.User
+import com.example.levelup_gamerpractica.data.model.CartItemRequest
 import com.example.levelup_gamerpractica.data.model.LoginRequest
 import com.example.levelup_gamerpractica.data.model.RegisterRequest
 import com.example.levelup_gamerpractica.data.remote.ProductNetworkDto
@@ -20,8 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-// Eliminamos NumberFormat, ya no lo necesitamos aquí
-import java.util.UUID
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -35,6 +35,7 @@ class AppRepository(
     private val apiService = RetrofitInstance.api
     private val productDao = database.productDao()
     private val userDao = database.userDao()
+    private val cartDao = database.cartDao()
     private val sessionManager = SessionManager(context)
 
     // --- ESTADO DE USUARIO ---
@@ -92,6 +93,9 @@ class AppRepository(
                     _currentUser.value = user
                     userDao.insertUser(user)
 
+                    // --- NUEVO: Sincronizar carrito al loguear ---
+                    syncCartFromBackend()
+
                     Result.success(user)
                 } else {
                     val basicUser = User(id = 0, username = username, email = "")
@@ -110,6 +114,13 @@ class AppRepository(
 
     suspend fun loadUserProfile(): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (!sessionManager.isLoggedIn()) return@withContext false
+
+            // Asegurar que el TokenManager tenga el token en memoria
+            if (TokenManager.getToken() == null) {
+                sessionManager.fetchAuthToken()?.let { TokenManager.setToken(it) }
+            }
+
             val response = apiService.getUserProfile()
             if (response.isSuccessful && response.body() != null) {
                 val profile = response.body()!!
@@ -126,6 +137,10 @@ class AppRepository(
 
                 _currentUser.value = user
                 userDao.insertUser(user)
+
+                // --- NUEVO: Si recargamos perfil, también aseguramos el carrito ---
+                syncCartFromBackend()
+
                 true
             } else {
                 false
@@ -139,12 +154,14 @@ class AppRepository(
         sessionManager.logout()
         TokenManager.setToken(null)
         _currentUser.value = null
-        clearCart()
+
+        // --- IMPORTANTE: Limpiar base de datos local al salir ---
+        cartDao.clearCart()
         userDao.deleteAllUsers()
     }
 
     // ========================================================================
-    // GESTIÓN DE PERFIL
+    // GESTIÓN DE PERFIL (Mantenemos tu código original)
     // ========================================================================
 
     private fun copyImageToInternalStorage(contentUri: Uri): String {
@@ -240,23 +257,21 @@ class AppRepository(
     }
 
     suspend fun updateUserPassword(oldPasswordHash: String, newPasswordHash: String): Result<Unit> = withContext(Dispatchers.IO) {
+        // Implementación pendiente en backend según lo conversado, placeholder:
         Result.success(Unit)
     }
 
     // ========================================================================
-    // PRODUCTOS (CORREGIDO PARA LONG Y DOUBLE)
+    // PRODUCTOS
     // ========================================================================
 
     private fun mapDtoToEntity(dto: ProductNetworkDto): Product {
-        // CAMBIO IMPORTANTE: Ya no formateamos el precio a String.
-        // Lo pasamos directo como Double.
-
         return Product(
-            id = dto.id.toLong(), // Aseguramos que sea Long
+            id = dto.id,
             name = dto.name,
-            price = dto.price,    // Double puro
+            price = dto.price,
             category = dto.category,
-            imageUrl = dto.imageUrl, // Cambiado de 'image' a 'imageUrl'
+            imageUrl = dto.imageUrl,
             description = dto.description,
             manufacturer = dto.manufacturer,
             distributor = dto.distributor
@@ -271,9 +286,7 @@ class AppRepository(
 
                 productDao.deleteAll()
                 productDao.insertAll(productEntityList)
-
                 println("AppRepository: Productos actualizados desde la API.")
-
             } catch (e: Exception) {
                 println("AppRepository: Error al refrescar productos: ${e.message}")
             }
@@ -286,46 +299,154 @@ class AppRepository(
 
 
     // ========================================================================
-    // CARRITO (ACTUALIZADO PARA USAR ID LONG)
+    // CARRITO (LÓGICA HÍBRIDA SINCRONIZADA)
     // ========================================================================
 
-    val cartItems: Flow<List<CartItemWithDetails>> = database.cartDao().getCartItemsWithDetails()
+    val cartItems: Flow<List<CartItemWithDetails>> = cartDao.getCartItemsWithDetails()
 
-    // Todos los parámetros productId ahora son Long
+    /**
+     * Descarga el carrito del servidor y reemplaza el local.
+     */
+    private suspend fun syncCartFromBackend() {
+        try {
+            val response = apiService.getMyCart()
+            if (response.isSuccessful && response.body() != null) {
+                val backendCart = response.body()!!
+
+                // 1. Limpiamos carrito local para evitar duplicados viejos
+                cartDao.clearCart()
+
+                // 2. Insertamos los items del backend en Room
+                backendCart.items.forEach { itemDto ->
+                    cartDao.upsertCartItem(
+                        CartItem(
+                            productId = itemDto.product.id,
+                            quantity = itemDto.quantity
+                        )
+                    )
+                }
+                Log.d("AppRepository", "Carrito sincronizado: ${backendCart.items.size} items")
+            }
+        } catch (e: Exception) {
+            Log.e("AppRepository", "Error sincronizando carrito: ${e.message}")
+        }
+    }
+
     suspend fun addToCart(productId: Long) = withContext(Dispatchers.IO) {
-        val existingItem = database.cartDao().getCartItem(productId)
-        if (existingItem != null) {
-            database.cartDao().updateQuantity(productId, existingItem.quantity + 1)
+        if (sessionManager.isLoggedIn()) {
+            // MODO ONLINE: Primero API, luego Local
+            try {
+                // El backend espera int, pasamos productId.toInt()
+                val request = CartItemRequest(productId = productId.toInt(), quantity = 1)
+                val response = apiService.addItemToCart(request)
+
+                if (response.isSuccessful) {
+                    // Si el backend dice OK, actualizamos localmente
+                    val existing = cartDao.getCartItem(productId)
+                    val newQty = (existing?.quantity ?: 0) + 1
+                    cartDao.upsertCartItem(CartItem(productId, newQty))
+                }
+            } catch (e: Exception) {
+                Log.e("Cart", "Error al añadir al backend: ${e.message}")
+            }
         } else {
-            // Nota: Asegúrate de que tu entidad CartItem también tenga productId como Long
-            database.cartDao().upsertCartItem(CartItem(productId = productId, quantity = 1))
+            // MODO OFFLINE: Solo Local
+            val existing = cartDao.getCartItem(productId)
+            val newQty = (existing?.quantity ?: 0) + 1
+            cartDao.upsertCartItem(CartItem(productId, newQty))
         }
     }
 
     suspend fun increaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
-        val item = database.cartDao().getCartItem(productId)
-        if (item != null) {
-            database.cartDao().updateQuantity(productId, item.quantity + 1)
+        val currentItem = cartDao.getCartItem(productId) ?: return@withContext
+        val newQty = currentItem.quantity + 1
+
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val body = mapOf("quantity" to newQty)
+                val response = apiService.updateCartItem(productId.toInt(), body)
+                if (response.isSuccessful) {
+                    cartDao.updateQuantity(productId, newQty)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else {
+            cartDao.updateQuantity(productId, newQty)
         }
     }
 
     suspend fun decreaseCartItemQuantity(productId: Long) = withContext(Dispatchers.IO) {
-        val item = database.cartDao().getCartItem(productId)
-        if (item != null) {
-            val newQuantity = item.quantity - 1
-            if (newQuantity > 0) {
-                database.cartDao().updateQuantity(productId, newQuantity)
+        val currentItem = cartDao.getCartItem(productId) ?: return@withContext
+        val newQty = currentItem.quantity - 1
+
+        if (newQty > 0) {
+            if (sessionManager.isLoggedIn()) {
+                try {
+                    val body = mapOf("quantity" to newQty)
+                    val response = apiService.updateCartItem(productId.toInt(), body)
+                    if (response.isSuccessful) cartDao.updateQuantity(productId, newQty)
+                } catch (e: Exception) { e.printStackTrace() }
             } else {
-                database.cartDao().deleteCartItem(productId)
+                cartDao.updateQuantity(productId, newQty)
             }
+        } else {
+            // Si baja a 0, eliminar
+            removeFromCart(productId)
         }
     }
 
     suspend fun removeFromCart(productId: Long) = withContext(Dispatchers.IO) {
-        database.cartDao().deleteCartItem(productId)
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val response = apiService.removeCartItem(productId.toInt())
+                if (response.isSuccessful) {
+                    cartDao.deleteCartItem(productId)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            cartDao.deleteCartItem(productId)
+        }
     }
 
     suspend fun clearCart() = withContext(Dispatchers.IO) {
-        database.cartDao().clearCart()
+        if (sessionManager.isLoggedIn()) {
+            try {
+                val response = apiService.clearCartApi()
+                if (response.isSuccessful) {
+                    cartDao.clearCart()
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            cartDao.clearCart()
+        }
+    }
+
+    // ========================================================================
+    // CHECKOUT / FINALIZAR COMPRA
+    // ========================================================================
+
+    suspend fun checkout(): Result<String> = withContext(Dispatchers.IO) {
+        if (!sessionManager.isLoggedIn()) {
+            return@withContext Result.failure(Exception("Debes iniciar sesión para comprar."))
+        }
+
+        try {
+            val response = apiService.checkout()
+            if (response.isSuccessful && response.body() != null) {
+                // Compra exitosa en backend -> Limpiamos carrito local
+                cartDao.clearCart()
+
+                // Recargamos el perfil para que se actualicen los puntos y nivel
+                loadUserProfile()
+
+                Result.success("Compra realizada con éxito. Orden #${response.body()!!.id}")
+            } else {
+                val error = response.errorBody()?.string() ?: "Error en el pago"
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -99,9 +99,6 @@ class ProfileViewModel(private val repository: AppRepository) : ViewModel() {
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, isSuccess = false) }
-            // Nota: Para cambiar contraseña real en backend, necesitarías un endpoint en la API
-            // y una función en el repositorio 'updatePasswordApi'.
-            // Por ahora usamos la local.
             val result = repository.updateUserPassword(oldPassword.value, newPassword.value)
             _uiState.update {
                 if (result.isSuccess) it.copy(isLoading = false, isSuccess = true)

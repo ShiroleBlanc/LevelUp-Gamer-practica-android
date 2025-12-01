@@ -30,9 +30,6 @@ class RegisterViewModelTest {
     fun setup() {
         repository = mockk()
         viewModel = RegisterViewModel(repository)
-
-        // ¡YA NO NECESITAMOS MOCKEAR PATTERNS!
-        // La validación de email ahora es lógica pura de Kotlin.
     }
 
     @After
@@ -42,7 +39,6 @@ class RegisterViewModelTest {
 
     @Test
     fun `register success updates uiState to Success`() = runTest {
-        // GIVEN
         val username = "GamerPro"
         val email = "test@duocuc.cl"
         val password = "password123"
@@ -56,10 +52,8 @@ class RegisterViewModelTest {
         viewModel.onConfirmPasswordChange(password)
         viewModel.onBirthDateChange(birthDate)
 
-        // WHEN
         viewModel.register()
 
-        // THEN
         assertTrue(viewModel.uiState.value is RegisterUiState.Success)
 
         coVerify(exactly = 1) {
@@ -81,10 +75,8 @@ class RegisterViewModelTest {
         val errorMsg = "El usuario ya existe"
         coEvery { repository.registerUserApi(any()) } returns Result.failure(Exception(errorMsg))
 
-        // WHEN
         viewModel.register()
 
-        // THEN
         val state = viewModel.uiState.value
         assertTrue(state is RegisterUiState.Error)
         assertEquals(errorMsg, (state as RegisterUiState.Error).message)
@@ -92,7 +84,6 @@ class RegisterViewModelTest {
 
     @Test
     fun `validation fails if passwords do not match`() = runTest {
-        // GIVEN
         viewModel.onPasswordChange("123456")
         viewModel.onConfirmPasswordChange("654321")
 
@@ -100,10 +91,8 @@ class RegisterViewModelTest {
         viewModel.onEmailChange("a@a.com")
         viewModel.onBirthDateChange(LocalDate.of(1990, 1, 1))
 
-        // WHEN
         viewModel.register()
 
-        // THEN
         assertTrue(viewModel.uiState.value is RegisterUiState.Idle)
         assertNotNull(viewModel.confirmPasswordError.value)
         assertEquals("Las contraseñas no coinciden.", viewModel.confirmPasswordError.value)
@@ -113,7 +102,6 @@ class RegisterViewModelTest {
 
     @Test
     fun `validation fails if user is underage`() = runTest {
-        // GIVEN - Menor de edad
         viewModel.onBirthDateChange(LocalDate.now())
 
         viewModel.onUsernameChange("ValidUser")
@@ -121,10 +109,8 @@ class RegisterViewModelTest {
         viewModel.onPasswordChange("123456")
         viewModel.onConfirmPasswordChange("123456")
 
-        // WHEN
         viewModel.register()
 
-        // THEN
         assertNotNull(viewModel.birthDateError.value)
         assertEquals("Debes ser mayor de 18 años.", viewModel.birthDateError.value)
 
@@ -133,7 +119,6 @@ class RegisterViewModelTest {
 
     @Test
     fun `validation fails if username is too short`() = runTest {
-        // GIVEN - Nombre corto
         viewModel.onUsernameChange("abc")
 
         viewModel.onEmailChange("a@a.com")
@@ -141,10 +126,8 @@ class RegisterViewModelTest {
         viewModel.onConfirmPasswordChange("123456")
         viewModel.onBirthDateChange(LocalDate.of(1990, 1, 1))
 
-        // WHEN
         viewModel.register()
 
-        // THEN
         assertNotNull(viewModel.usernameError.value)
         coVerify(exactly = 0) { repository.registerUserApi(any()) }
     }

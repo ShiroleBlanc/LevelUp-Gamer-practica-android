@@ -49,4 +49,7 @@ interface ApiService {
 
     @GET("api/orders/my-orders")
     suspend fun getMyOrders(): Response<List<OrderResponse>>
+
+    @GET("api/version/latest")
+    suspend fun getLatestVersion(): Response<VersionResponse>
 }

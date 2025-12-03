@@ -439,4 +439,24 @@ class AppRepository(
         }
     }
     suspend fun updateUserPassword(o: String, n: String): Result<Unit> = Result.success(Unit)
+
+    suspend fun checkUpdate(): String? = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getLatestVersion()
+            if (response.isSuccessful && response.body() != null) {
+                val serverVersion = response.body()!!.versionCode
+                // Obtener versión actual de la App
+                val currentVersion = context.packageManager
+                    .getPackageInfo(context.packageName, 0).longVersionCode.toInt() // o .versionCode en antiguos
+
+                if (serverVersion > currentVersion) {
+                    // Devolvemos la URL completa para descargar
+                    return@withContext RetrofitInstance.BASE_URL.trimEnd('/') + response.body()!!.url
+                }
+            }
+            return@withContext null
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

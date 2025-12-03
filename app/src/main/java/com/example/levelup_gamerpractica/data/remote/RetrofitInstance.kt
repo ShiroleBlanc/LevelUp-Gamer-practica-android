@@ -6,7 +6,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitInstance {
 
-    private const val BASE_URL = "http://localhost:8081/"
+    const val BASE_URL = "http://192.168.1.94:8081/"
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor())

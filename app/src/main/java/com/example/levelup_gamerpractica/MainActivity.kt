@@ -1,5 +1,8 @@
 package com.example.levelup_gamerpractica
 
+import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -24,18 +27,18 @@ class MainActivity : ComponentActivity() {
         val sessionManager = SessionManager(this)
         val savedToken = sessionManager.fetchAuthToken()
 
+        // Obtenemos el repositorio desde la Application
         val repository = (application as LevelUpGamerApplication).repository
 
         val startDestination = Routes.CATALOG
 
+        // --- LÓGICA DE SESIÓN ---
         if (savedToken != null) {
             Log.d("DEBUG_SESION", "Token encontrado. Restaurando sesión...")
-
             TokenManager.setToken(savedToken)
 
             lifecycleScope.launch {
                 val success = repository.loadUserProfile()
-
                 if (success) {
                     Log.d("DEBUG_SESION", "Perfil cargado. Usuario validado.")
                 } else {
@@ -43,6 +46,16 @@ class MainActivity : ComponentActivity() {
                     sessionManager.logout()
                     TokenManager.setToken(null)
                 }
+            }
+        }
+
+        // --- LÓGICA DE ACTUALIZACIÓN (OTA) ---
+        lifecycleScope.launch {
+            // Chequeamos si hay nueva versión en el backend
+            val updateUrl = repository.checkUpdate()
+            if (updateUrl != null) {
+                // Si hay URL, mostramos el diálogo
+                showUpdateDialog(updateUrl)
             }
         }
 
@@ -56,5 +69,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    // --- FUNCIÓN QUE FALTABA ---
+    // Esta función crea la ventanita emergente nativa de Android
+    private fun showUpdateDialog(url: String) {
+        if (isFinishing) return // Evita errores si la app se está cerrando
+
+        AlertDialog.Builder(this)
+            .setTitle("Actualización Disponible")
+            .setMessage("Hay una nueva versión de LevelUp Gamer. ¿Quieres descargarla e instalarla ahora?")
+            .setCancelable(false) // Obliga al usuario a elegir, no puede cerrar tocando fuera
+            .setPositiveButton("Actualizar") { _, _ ->
+                try {
+                    // Abre el navegador (Chrome) con el link directo al APK
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("Updater", "Error al abrir link: ${e.message}")
+                }
+            }
+            .setNegativeButton("Más tarde", null)
+            .show()
     }
 }

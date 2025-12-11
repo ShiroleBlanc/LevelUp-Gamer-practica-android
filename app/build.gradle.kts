@@ -12,9 +12,9 @@ android {
 
     defaultConfig {
         applicationId = "com.example.levelup_gamerpractica"
-        minSdk = 33 // Puedes bajarlo a 26 si quieres soportar mas telefonos, pero 33 esta bien para practica
+        minSdk = 33
         targetSdk = 36
-        versionCode = 2
+        versionCode = 7 //cada vez que actualizas la app, cambia este numero
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

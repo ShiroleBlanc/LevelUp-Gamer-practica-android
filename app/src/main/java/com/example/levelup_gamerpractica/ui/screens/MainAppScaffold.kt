@@ -49,6 +49,17 @@ fun MainAppScaffold(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Contexto para obtener la versión
+    val context = LocalContext.current
+    val appVersion = remember {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            "v${packageInfo.versionName}"
+        } catch (e: Exception) {
+            "v1.0"
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -60,16 +71,21 @@ fun MainAppScaffold(
                         Text("Hola, ${currentUser?.username}", style = MaterialTheme.typography.titleLarge)
                     }
                     HorizontalDivider()
+                } else {
+                    // Header genérico si no hay usuario
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterStart) {
+                        Text("Bienvenido a LevelUp", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                    }
+                    HorizontalDivider()
                 }
+
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Storefront, contentDescription = "Catálogo") },
+                    icon = { Icon(Icons.Filled.Storefront, contentDescription = null) },
                     label = { Text("Catálogo") },
                     selected = currentRoute == Routes.CATALOG,
                     onClick = {
                         navController.navigate(Routes.CATALOG) {
-                            popUpTo(Routes.CATALOG) {
-                                inclusive = false
-                            }
+                            popUpTo(Routes.CATALOG) { inclusive = false }
                             launchSingleTop = true
                         }
                         scope.launch { drawerState.close() }
@@ -78,14 +94,12 @@ fun MainAppScaffold(
                 )
 
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.ShoppingCart, contentDescription = "Carrito") },
+                    icon = { Icon(Icons.Filled.ShoppingCart, contentDescription = null) },
                     label = { Text("Carrito") },
                     selected = currentRoute == Routes.CART,
                     onClick = {
                         navController.navigate(Routes.CART) {
-                            popUpTo(Routes.CATALOG) {
-                                saveState = true
-                            }
+                            popUpTo(Routes.CATALOG) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -98,7 +112,7 @@ fun MainAppScaffold(
 
                 if (currentUser == null) {
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Filled.Login, contentDescription = "Iniciar Sesión") },
+                        icon = { Icon(Icons.Filled.Login, contentDescription = null) },
                         label = { Text("Iniciar Sesión") },
                         selected = currentRoute == Routes.LOGIN,
                         onClick = {
@@ -108,7 +122,7 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Filled.PersonAdd, contentDescription = "Registrarme") },
+                        icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
                         label = { Text("Registrarme") },
                         selected = currentRoute == Routes.REGISTER,
                         onClick = {
@@ -119,14 +133,12 @@ fun MainAppScaffold(
                     )
                 } else {
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Filled.Person, contentDescription = "Mi Perfil") },
+                        icon = { Icon(Icons.Filled.Person, contentDescription = null) },
                         label = { Text("Mi Perfil") },
                         selected = currentRoute == Routes.PROFILE,
                         onClick = {
                             navController.navigate(Routes.PROFILE) {
-                                popUpTo(Routes.CATALOG) {
-                                    saveState = true
-                                }
+                                popUpTo(Routes.CATALOG) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -136,13 +148,12 @@ fun MainAppScaffold(
                     )
 
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Filled.Logout, contentDescription = "Cerrar Sesión") },
+                        icon = { Icon(Icons.Filled.Logout, contentDescription = null) },
                         label = { Text("Cerrar Sesión") },
                         selected = false,
                         onClick = {
                             mainViewModel.logout()
                             scope.launch { drawerState.close() }
-                            // Ir al Login y borrar TODO el historial anterior
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -150,6 +161,17 @@ fun MainAppScaffold(
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = "LevelUp Gamer $appVersion",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     ) {
@@ -190,7 +212,7 @@ fun MainAppScaffold(
                                             .data(currentUser?.profilePictureUrl)
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "Foto de perfil",
+                                        contentDescription = "Foto",
                                         modifier = Modifier
                                             .size(32.dp)
                                             .clip(CircleShape)

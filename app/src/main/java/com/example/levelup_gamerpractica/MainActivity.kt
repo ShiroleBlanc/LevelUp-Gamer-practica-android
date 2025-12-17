@@ -27,12 +27,10 @@ class MainActivity : ComponentActivity() {
         val sessionManager = SessionManager(this)
         val savedToken = sessionManager.fetchAuthToken()
 
-        // Obtenemos el repositorio desde la Application
         val repository = (application as LevelUpGamerApplication).repository
 
         val startDestination = Routes.CATALOG
 
-        // --- LÓGICA DE SESIÓN ---
         if (savedToken != null) {
             Log.d("DEBUG_SESION", "Token encontrado. Restaurando sesión...")
             TokenManager.setToken(savedToken)
@@ -49,12 +47,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // --- LÓGICA DE ACTUALIZACIÓN (OTA) ---
         lifecycleScope.launch {
-            // Chequeamos si hay nueva versión en el backend
             val updateUrl = repository.checkUpdate()
             if (updateUrl != null) {
-                // Si hay URL, mostramos el diálogo
                 showUpdateDialog(updateUrl)
             }
         }
@@ -71,15 +66,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- FUNCIÓN QUE FALTABA ---
-    // Esta función crea la ventanita emergente nativa de Android
     private fun showUpdateDialog(url: String) {
-        if (isFinishing) return // Evita errores si la app se está cerrando
+        if (isFinishing) return
 
         AlertDialog.Builder(this)
             .setTitle("Actualización Disponible")
             .setMessage("Hay una nueva versión de LevelUp Gamer. ¿Quieres descargarla e instalarla ahora?")
-            .setCancelable(false) // Obliga al usuario a elegir, no puede cerrar tocando fuera
+            .setCancelable(false)
             .setPositiveButton("Actualizar") { _, _ ->
                 try {
                     // Abre el navegador (Chrome) con el link directo al APK

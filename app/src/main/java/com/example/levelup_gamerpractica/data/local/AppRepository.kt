@@ -445,12 +445,10 @@ class AppRepository(
             val response = apiService.getLatestVersion()
             if (response.isSuccessful && response.body() != null) {
                 val serverVersion = response.body()!!.versionCode
-                // Obtener versión actual de la App
                 val currentVersion = context.packageManager
-                    .getPackageInfo(context.packageName, 0).longVersionCode.toInt() // o .versionCode en antiguos
+                    .getPackageInfo(context.packageName, 0).longVersionCode.toInt()
 
                 if (serverVersion > currentVersion) {
-                    // Devolvemos la URL completa para descargar
                     return@withContext RetrofitInstance.BASE_URL.trimEnd('/') + response.body()!!.url
                 }
             }
